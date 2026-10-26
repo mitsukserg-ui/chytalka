@@ -516,14 +516,44 @@ async function renderThumb(pdf) {
   } catch (e) { return null; }
 }
 
+// Читання вибраного файлу (з резервним способом для старіших iOS)
+function readFileBuf(f) {
+  if (f.arrayBuffer) return f.arrayBuffer().catch(() => readViaReader(f));
+  return readViaReader(f);
+}
+function readViaReader(f) {
+  return new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => fail(r.error || new Error('не вдалося прочитати файл')); r.readAsArrayBuffer(f); });
+}
+// Книжка в базі може бути Blob (старі версії) або ArrayBuffer
+async function storedBuf(x) { return x instanceof ArrayBuffer ? x : x && x.arrayBuffer ? await x.arrayBuffer() : await readViaReader(x); }
+// Відкриття PDF: спершу з окремим потоком, а якщо не вийде — в основному потоці
+let pdfMainThread = false;
+function loadScript(src) { return new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => fail(new Error('не завантажився ' + src)); document.head.appendChild(s); }); }
+async function openPdf(buf) {
+  const make = () => pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)), isEvalSupported: false, useSystemFonts: true }).promise;
+  try {
+    return await Promise.race([make(), sleep(20000).then(() => { throw new Error('час очікування вичерпано'); })]);
+  } catch (e) {
+    if (e && e.name === 'PasswordException') throw e;
+    if (pdfMainThread) throw e;
+    console.warn('PDF worker failed, retry on main thread', e);
+    pdfMainThread = true;
+    if (!window.pdfjsWorker) await loadScript('lib/pdf.worker.min.js');
+    return await make();
+  }
+}
 async function importFiles(files) {
   const pdfs = files.filter(f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
   if (!pdfs.length) { toast('Виберіть файл у форматі PDF'); return; }
   for (const f of pdfs) {
     toast(`Додаю «${f.name}»…`, 60000);
+    let stage = 'читання файлу';
     try {
-      const buf = await f.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)), isEvalSupported: false }).promise;
+      const buf = await readFileBuf(f);
+      if (!buf.byteLength) throw new Error('файл порожній (можливо, ще не завантажений з iCloud)');
+      stage = 'відкриття PDF';
+      const pdf = await openPdf(buf);
+      stage = 'обробка книжки';
       let title = f.name.replace(/\.pdf$/i, '').replace(/[_]+/g, ' ').trim();
       try {
         const md = await pdf.getMetadata();
@@ -539,12 +569,16 @@ async function importFiles(files) {
         added: Date.now(), opened: 0, offset: 0, labels: meaningful ? labels : null, useLabels: !!meaningful,
         last: null, mode: null,
       };
-      await DB.put('files', new Blob([buf], { type: 'application/pdf' }), book.id);
+      stage = 'збереження в телефоні';
+      await DB.put('files', buf, book.id); // ArrayBuffer: Safari на iPhone не завжди вміє зберігати Blob
       await DB.put('books', book);
       pdf.destroy(); markDirty();
       toast(`Додано: ${title}`);
     } catch (e) {
-      console.error(e); toast(`Не вдалося відкрити «${f.name}» — файл пошкоджений або захищений паролем`, 5000);
+      console.error(e);
+      const why = e && e.name === 'PasswordException' ? 'файл захищений паролем'
+        : `етап «${stage}»: ${(e && (e.message || e.name)) || e}`;
+      toast(`Не вдалося додати «${f.name}» — ${why}`, 9000);
     }
     renderLibrary();
   }
@@ -673,9 +707,9 @@ async function openBook(id) {
   Object.assign(R, { raw: null, chunks: null, textReady: false, noText: false, chunk: -1, segs: [], screen: 0 });
   flow.innerHTML = ''; $$('#orig canvas').forEach(c => c.remove()); $('#tl').innerHTML = '';
   try {
-    const data = new Uint8Array(await blob.arrayBuffer());
+    const data = await storedBuf(blob);
     if (R.pdf) { R.pdf.destroy(); R.pdf = null; }
-    R.pdf = await pdfjsLib.getDocument({ data, isEvalSupported: false }).promise;
+    R.pdf = await openPdf(data);
   } catch (e) { console.error(e); toast('Файл книжки пошкоджений'); closeBook(); return; }
   if (token !== R.token) return;
   R.book = book; R.N = R.pdf.numPages; book.pages = R.N; book.opened = Date.now(); DB.put('books', book);
@@ -1530,7 +1564,7 @@ $('#bkMake').onclick = async () => {
     const files = [{ name: 'data.json', data: enc.encode(JSON.stringify({ app: 'chytalka', v: 1, at: Date.now(), books, words, marks })) }];
     if ($('#bkBooks').checked) for (const bk of books) {
       const blob = await DB.get('files', bk.id);
-      if (blob) files.push({ name: `books/${bk.id}.pdf`, data: new Uint8Array(await blob.arrayBuffer()) });
+      if (blob) files.push({ name: `books/${bk.id}.pdf`, data: new Uint8Array(await storedBuf(blob)) });
     }
     const d = new Date(), name = `chytalka-kopiya-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.zip`;
     preparedBackup = new File([makeZip(files)], name, { type: 'application/zip' });
@@ -1557,7 +1591,7 @@ $('#bkIn').onchange = async e => {
       const cur = await DB.get('books', b.id);
       if (!cur) {
         const pdf = z[`books/${b.id}.pdf`]; if (!pdf) continue;
-        await DB.put('files', new Blob([pdf], { type: 'application/pdf' }), b.id); await DB.put('books', b); nb++;
+        await DB.put('files', pdf.slice().buffer, b.id); await DB.put('books', b); nb++;
       } else if ((b.lastAt || 0) > (cur.lastAt || 0)) { cur.last = b.last; cur.lastAt = b.lastAt; cur.offset = b.offset; cur.useLabels = b.useLabels; await DB.put('books', cur); }
     }
     W = await DB.all('words');

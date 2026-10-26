@@ -1,5 +1,5 @@
 // Офлайн-робота читалки: усі файли програми зберігаються в телефоні.
-const VERSION = 'chytalka-app-v1';
+const VERSION = 'chytalka-app-v2';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'connectors.js', 'connectors-uk.js', 'offline-tr.js',
   'lib/pdf.min.js', 'lib/pdf.worker.min.js',
