@@ -693,7 +693,7 @@ function buildFlow(pages) {
 const R = {
   book: null, pdf: null, N: 0, mode: 'text', p: 1, k: 0, token: 0,
   raw: null, chunks: null, pageChunk: null, segChunk: null, noText: false, textReady: false,
-  chunk: -1, screen: 0, total: 1, segs: [], pitch: 1, cols: 1,
+  chunk: -1, screen: 0, total: 1, segs: [], filled: new Set(), pitch: 1, cols: 1,
   fs: false, locked: false, marks: [], renderToken: 0, renderTask: null,
 };
 const flow = $('#flow'), paper = $('#paper'), stage = $('#stage');
@@ -842,8 +842,17 @@ function measure() {
     prevA = a; return { p, k, a, b };
   });
   const byRects = R.segs.reduce((mx, s) => Math.max(mx, s.b), 0) + 1;
+  // ширину беремо лише тоді, коли координати рядків не допомогли (усе «на одному екрані»)
   const byWidth = Math.ceil((flow.scrollWidth + 2) / R.pitch);
-  R.total = Math.max(byRects, byWidth, 1);
+  R.total = byRects > 1 || R.segs.length < 30 ? byRects : Math.max(byRects, byWidth, 1);
+  R.filled = new Set();
+  for (const s of R.segs) for (let n = s.a; n <= s.b; n++) R.filled.add(n);
+}
+// наступний / попередній екран, на якому є текст (порожні пропускаємо); -1 — немає
+function textScreen(from, dir) {
+  if (R.filled.size <= 1 && R.total > 1) return from >= 0 && from < R.total ? from : -1;
+  for (let n = from; n >= 0 && n < R.total; n += dir) if (R.filled.has(n)) return n;
+  return -1;
 }
 function topSeg(screen) {
   const L = R.segs; let last = -1;
@@ -922,16 +931,18 @@ function next() {
   closePop();
   if (R.mode === 'orig') { if (R.p < R.N) { R.p++; R.k = 0; renderOrig(R.p); updateChrome(); savePos(); } else toast('Це остання сторінка'); return; }
   if (!R.chunks) return;
-  if (R.screen < R.total - 1) setScreen(R.screen + 1, true);
-  else if (R.chunk < R.chunks.length - 1) { renderChunk(R.chunk + 1); setScreen(0, false); }
+  const n = textScreen(R.screen + 1, 1);
+  if (n >= 0) setScreen(n, true);
+  else if (R.chunk < R.chunks.length - 1) { renderChunk(R.chunk + 1); setScreen(Math.max(0, textScreen(0, 1)), false); }
   else toast('Кінець книжки');
 }
 function prev() {
   closePop();
   if (R.mode === 'orig') { if (R.p > 1) { R.p--; R.k = 0; renderOrig(R.p); updateChrome(); savePos(); } return; }
   if (!R.chunks) return;
-  if (R.screen > 0) setScreen(R.screen - 1, true);
-  else if (R.chunk > 0) { renderChunk(R.chunk - 1); setScreen(R.total - 1, false); }
+  const n = textScreen(R.screen - 1, -1);
+  if (n >= 0) setScreen(n, true);
+  else if (R.chunk > 0) { renderChunk(R.chunk - 1); setScreen(Math.max(0, textScreen(R.total - 1, -1)), false); }
 }
 function goPage(p) {
   p = clamp(p, 1, R.N);
