@@ -221,7 +221,7 @@ body.locked #lockBtn{opacity:.75;color:var(--accent)}
   </main>
   <footer class="botbar">
     <button class="ib" id="btnPrev" title="Попередня сторінка" data-icon="left"></button>
-    <label class="pg">стор. <input id="pgIn" inputmode="numeric" enterkeyhint="go" autocomplete="off"> <span id="pgOf"></span></label>
+    <form class="pg" id="pgForm" action="#" novalidate><label for="pgIn">стор.</label> <input id="pgIn" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="go" autocomplete="off"> <span id="pgOf"></span></form>
     <input type="range" id="pgRange" min="1" value="1">
     <button class="ib" id="btnNext" title="Наступна сторінка" data-icon="right"></button>
     <button class="ib" id="btnSettings" title="Шрифт і налаштування">Aa</button>
@@ -828,15 +828,22 @@ function renderChunk(ci) {
 }
 function measure() {
   flow.style.transition = 'none'; flow.style.transform = 'none';
-  const fr = flow.getBoundingClientRect(); let prevA = 0;
+  $('#frame').scrollLeft = 0; $('#frame').scrollTop = 0;
+  const fr = flow.getBoundingClientRect(), fh = flow.clientHeight || 1; let prevA = 0;
+  // Екран за координатами рядка. Деякі версії iOS повертають координати так, ніби колонки
+  // стоять одна під одною (одна висока колонка) — тоді номер колонки рахуємо за висотою.
+  const scr = (x, y) => Math.max(0, Math.floor(x / R.pitch) + Math.floor(Math.floor(Math.max(0, y) / fh) / R.cols));
   R.segs = $$('.s', flow).map(el => {
     const rs = el.getClientRects(), p = +el.dataset.p, k = +el.dataset.k;
     if (!rs.length) return { p, k, a: prevA, b: prevA };
-    const a = Math.floor((rs[0].left - fr.left + 1) / R.pitch);
-    const b = Math.max(a, Math.floor((rs[rs.length - 1].right - fr.left - 1) / R.pitch));
+    const f = rs[0], l = rs[rs.length - 1];
+    const a = Math.max(prevA, scr(f.left - fr.left + 1, f.top - fr.top + 1));
+    const b = Math.max(a, scr(l.right - fr.left - 1, l.bottom - fr.top - 1));
     prevA = a; return { p, k, a, b };
   });
-  R.total = R.segs.reduce((mx, s) => Math.max(mx, s.b), 0) + 1;
+  const byRects = R.segs.reduce((mx, s) => Math.max(mx, s.b), 0) + 1;
+  const byWidth = Math.ceil((flow.scrollWidth + 2) / R.pitch);
+  R.total = Math.max(byRects, byWidth, 1);
 }
 function topSeg(screen) {
   const L = R.segs; let last = -1;
@@ -846,6 +853,7 @@ function topSeg(screen) {
 }
 function setScreen(n, anim) {
   R.screen = clamp(n, 0, R.total - 1);
+  $('#frame').scrollLeft = 0;
   flow.style.transition = anim ? 'transform .34s cubic-bezier(.22,.8,.26,1)' : 'none';
   flow.style.transform = `translate3d(${-R.screen * R.pitch}px,0,0)`;
   const t = topSeg(R.screen);
@@ -866,6 +874,8 @@ function textGo(pos) {
   if (i < 0) i = R.segs.findIndex(s => s.p >= pos.p);
   if (i < 0) i = R.segs.length - 1;
   setScreen(i >= 0 ? R.segs[i].a : 0, false);
+  // екран може починатися з кінця попередньої сторінки — показуємо ту, яку просили
+  if (i >= 0 && R.segs[i].p >= pos.p) { R.p = R.segs[i].p; R.k = R.segs[i].k; updateChrome(); }
 }
 
 /* =====================================================================
@@ -996,14 +1006,19 @@ $('#btnBack').onclick = closeBook;
 $('#btnPrev').onclick = prev;
 $('#btnNext').onclick = next;
 $$('#modeSeg button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
-$('#pgIn').addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
-  const p = pageFromLabel(R.book, e.target.value);
+// На цифровій клавіатурі iPhone немає Enter — переходимо, коли поле втрачає фокус («Готово» або дотик поза ним)
+let pgWas = '';
+function goInputPage() {
+  const v = $('#pgIn').value.trim();
+  if (!R.book || !v || v === pgWas) return;
+  const p = pageFromLabel(R.book, v);
   if (p == null) { toast('Введіть номер сторінки'); return; }
-  e.target.blur(); goPage(p);
-});
-$('#pgIn').addEventListener('focus', e => e.target.select());
-$('#pgIn').addEventListener('blur', updateChrome);
+  closePop(); goPage(p);
+}
+$('#pgIn').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } });
+$('#pgIn').addEventListener('focus', e => { pgWas = e.target.value; setTimeout(() => e.target.select(), 0); });
+$('#pgIn').addEventListener('blur', () => { goInputPage(); updateChrome(); });
+$('#pgForm').addEventListener('submit', e => { e.preventDefault(); $('#pgIn').blur(); });
 $('#pgRange').addEventListener('input', e => { $('#pgIn').value = labelOf(R.book, +e.target.value); });
 $('#pgRange').addEventListener('change', e => goPage(+e.target.value));
 
