@@ -1,5 +1,5 @@
 // Офлайн-робота читалки: усі файли програми зберігаються в телефоні.
-const VERSION = 'chytalka-app-v5';
+const VERSION = 'chytalka-app-v6';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'connectors.js', 'connectors-uk.js', 'offline-tr.js',
   'lib/pdf.min.js', 'lib/pdf.worker.min.js',
@@ -10,7 +10,8 @@ const SHELL = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: 'reload' — беремо свіжі файли з сервера, а не зі старої пам'яті браузера
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -35,7 +36,7 @@ self.addEventListener('fetch', e => {
     // Великі файли (моделі, рушій, шрифти) — з телефону
     if (heavy && hit) return hit;
     // Решта: з Інтернету (щоб отримувати оновлення), а без нього — з телефону
-    const net = fetch(req).then(r => {
+    const net = (url.origin === location.origin ? fetch(req.url, { cache: 'no-cache' }) : fetch(req)).then(r => {
       if (r && (r.ok || r.type === 'opaque') && !url.pathname.includes('/models/')) cache.put(req, r.clone());
       return r;
     }).catch(() => null);

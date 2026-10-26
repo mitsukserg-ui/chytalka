@@ -292,6 +292,7 @@ body.locked #lockBtn{opacity:.75;color:var(--accent)}
         Кнопка ⛶ — на весь екран. Дотик до центру сторінки повертає назад. Замок у куті блокує випадкові дотики — тоді гортати можна лише свайпом.<br>
         З Інтернетом переклад робить Google Translate, без Інтернету — вбудований офлайн-перекладач.
       </p>
+      <p class="hint" id="appVer"></p>
     </div>
   </div>
 </aside>
@@ -896,7 +897,6 @@ function setScreen(n, dir) {
   R.screen = clamp(n, 0, R.total - 1);
   const ps = R.pages.slice(R.screen * R.cols, R.screen * R.cols + R.cols);
   flow.innerHTML = ps.map(pg => `<div class="tx col" style="width:${R.colW}px;height:${R.colH}px">${pageHtml(pg)}</div>`).join('');
-  if (dir && flow.animate) flow.animate([{ opacity: .3, transform: `translateX(${dir * 26}px)` }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'ease-out' });
   const t = topSeg(R.screen);
   if (t) { R.p = t.p; R.k = t.k; }
   updateChrome(); savePos();
@@ -1693,7 +1693,16 @@ function syncSettingsUI() {
   if (R.book) { $('#numIn').value = labelOf(R.book, R.p); $('#lblWrap').hidden = !R.book.labels; $('#lblChk').checked = !!R.book.useLabels; }
   refreshTrUI();
 }
-$('#btnSettings').onclick = () => { syncSettingsUI(); showSheet('setSheet'); };
+const APP_V = 6;
+$('#btnSettings').onclick = () => {
+  syncSettingsUI();
+  // версія і короткі технічні дані (щоб можна було надіслати знімок екрана, якщо щось не так)
+  const ios = (navigator.userAgent.match(/OS (\d+[_\d]*)/) || [])[1];
+  const txt = R.mode === 'text' && R.chunk >= 0 ? flow.textContent.replace(/\s+/g, '').length : '-';
+  $('#appVer').textContent = `Версія ${APP_V}` + (ios ? ` · iOS ${ios.replace(/_/g, '.')}` : '') +
+    ` · ${R.mode} ${R.chunk}/${R.screen + 1}/${R.total}/${R.pages.length} · ${R.colW}×${R.colH} · ${txt}`;
+  showSheet('setSheet');
+};
 $$('#themeSeg button').forEach(b => b.onclick = () => { S.theme = b.dataset.v; saveS(); applyLook(); syncSettingsUI(); });
 $$('#spreadSeg button').forEach(b => b.onclick = () => { S.spread = b.dataset.v; saveS(); syncSettingsUI(); relayout(); });
 $('#fontSel').onchange = e => { S.font = e.target.value; saveS(); applyLook(); relayoutSoon(); };
@@ -1720,7 +1729,16 @@ $('#lblChk').onchange = e => { R.book.useLabels = e.target.checked; DB.put('book
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
   try { await DB.open(); } catch (e) { alert('Браузер не дозволяє зберігати дані.'); return; }
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(e => console.warn(e));
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+    }).catch(e => console.warn(e));
+    // нова версія встановилась — перезавантажуємося, коли відкрита бібліотека (не посеред читання)
+    let had = !!navigator.serviceWorker.controller, pending = false;
+    const reloadIfIdle = () => { if (pending && $('#reader').hidden) location.reload(); };
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (had) { pending = true; reloadIfIdle(); } had = true; });
+    new MutationObserver(reloadIfIdle).observe($('#reader'), { attributes: true, attributeFilter: ['hidden'] });
+  }
   W = await DB.all('words');
   renderLibrary();
   refreshTrUI();
