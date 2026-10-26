@@ -1,0 +1,54 @@
+{
+ "esen": {
+  "model.bin": {
+   "size": 31561787,
+   "partSize": 9437184,
+   "parts": [
+    "model.bin.0",
+    "model.bin.1",
+    "model.bin.2",
+    "model.bin.3"
+   ]
+  },
+  "lex.bin": {
+   "size": 4636248,
+   "partSize": 9437184,
+   "parts": [
+    "lex.bin.0"
+   ]
+  },
+  "vocab.spm": {
+   "size": 816054,
+   "partSize": 9437184,
+   "parts": [
+    "vocab.spm.0"
+   ]
+  }
+ },
+ "enuk": {
+  "model.bin": {
+   "size": 31561787,
+   "partSize": 9437184,
+   "parts": [
+    "model.bin.0",
+    "model.bin.1",
+    "model.bin.2",
+    "model.bin.3"
+   ]
+  },
+  "lex.bin": {
+   "size": 3054364,
+   "partSize": 9437184,
+   "parts": [
+    "lex.bin.0"
+   ]
+  },
+  "vocab.spm": {
+   "size": 922077,
+   "partSize": 9437184,
+   "parts": [
+    "vocab.spm.0"
+   ]
+  }
+ }
+}
