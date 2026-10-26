@@ -80,10 +80,13 @@ svg{display:block;flex:none}
 .paper.bleed{box-shadow:none;border-radius:0}
 .paper.spread::after{content:'';position:absolute;top:0;bottom:0;left:50%;width:70px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,rgba(0,0,0,.05) 40%,rgba(0,0,0,.13) 50%,rgba(0,0,0,.05) 60%,transparent);pointer-events:none}
 #frame{position:absolute;overflow:hidden}
-#flow{font-family:var(--rfont);font-size:var(--fs);line-height:var(--lh);text-align:justify;hyphens:auto;-webkit-hyphens:auto;column-fill:auto;orphans:2;widows:2;overflow-wrap:break-word;-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;font-kerning:normal;text-rendering:optimizeLegibility}
-#flow p{margin:0;text-indent:1.4em}
-#flow p.hd{text-indent:0;text-align:center;font-weight:600;margin:.9em 0 .7em;break-after:avoid;hyphens:manual;-webkit-hyphens:manual}
-#flow p.hd + p:not(.hd){text-indent:0}
+#flow{display:flex;height:100%;-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+.tx{font-family:var(--rfont);font-size:var(--fs);line-height:var(--lh);text-align:justify;hyphens:auto;-webkit-hyphens:auto;overflow-wrap:break-word;font-kerning:normal;text-rendering:optimizeLegibility;display:flow-root;overflow:hidden;flex:none}
+.tx p{margin:0;text-indent:1.4em}
+.tx p.hd{text-indent:0;text-align:center;font-weight:600;margin:.9em 0 .7em;hyphens:manual;-webkit-hyphens:manual}
+.tx p.hd + p:not(.hd),.tx p.cont{text-indent:0}
+.tx p.cut{text-align-last:justify}
+#meas{position:absolute;left:0;top:0;height:auto;visibility:hidden;pointer-events:none}
 #folio{position:absolute;left:0;right:0;text-align:center;font:14px var(--rfont);color:var(--muted);pointer-events:none}
 #orig{position:relative;width:100%;height:100%}
 #orig canvas{display:block;width:100%;height:100%;animation:fade .18s ease}
@@ -207,7 +210,7 @@ body.locked #lockBtn{opacity:.75;color:var(--accent)}
   </header>
   <main id="stage">
     <div class="paper" id="paper">
-      <div id="frame"><div id="flow" lang="es"></div></div>
+      <div id="frame"><div id="flow" lang="es"></div><div id="meas" class="tx" lang="es" aria-hidden="true"></div></div>
       <div id="orig"><div id="tl" class="textLayer"></div></div>
       <div id="folio"></div>
     </div>
@@ -693,7 +696,7 @@ function buildFlow(pages) {
 const R = {
   book: null, pdf: null, N: 0, mode: 'text', p: 1, k: 0, token: 0,
   raw: null, chunks: null, pageChunk: null, segChunk: null, noText: false, textReady: false,
-  chunk: -1, screen: 0, total: 1, segs: [], filled: new Set(), pitch: 1, cols: 1,
+  chunk: -1, screen: 0, total: 1, pages: [], cols: 1, colW: 300, colH: 400,
   fs: false, locked: false, marks: [], renderToken: 0, renderTask: null,
 };
 const flow = $('#flow'), paper = $('#paper'), stage = $('#stage');
@@ -704,7 +707,7 @@ async function openBook(id) {
   if (!book || !blob) { toast('Не вдалося відкрити книжку'); return; }
   $('#library').hidden = true; $('#reader').hidden = false;
   showBusy('Відкриваю книжку…', null, false);
-  Object.assign(R, { raw: null, chunks: null, textReady: false, noText: false, chunk: -1, segs: [], screen: 0 });
+  Object.assign(R, { raw: null, chunks: null, textReady: false, noText: false, chunk: -1, pages: [], screen: 0 });
   flow.innerHTML = ''; $$('#orig canvas').forEach(c => c.remove()); $('#tl').innerHTML = '';
   try {
     const data = await storedBuf(blob);
@@ -808,63 +811,92 @@ function layoutText() {
   const fr = $('#frame');
   fr.style.left = Math.floor((pw - fw) / 2) + 'px'; fr.style.top = padTop + 'px';
   fr.style.width = fw + 'px'; fr.style.height = fh + 'px';
-  flow.style.width = fw + 'px'; flow.style.height = fh + 'px';
-  flow.style.columnCount = cols; flow.style.columnGap = gap + 'px';
+  flow.style.width = fw + 'px'; flow.style.height = fh + 'px'; flow.style.gap = gap + 'px';
   $('#folio').style.bottom = (Math.round(padBot * 0.35) + ins.b * 0.6) + 'px';
-  R.pitch = fw + gap; R.cols = cols;
+  R.cols = cols; R.colW = cols === 2 ? Math.floor((fw - gap) / 2) : fw; R.colH = fh;
+  meas.style.width = R.colW + 'px';
 }
 
-function renderChunk(ci) {
-  const ch = R.chunks[ci];
-  let h = '';
-  for (const para of ch.paras) {
-    let inner = '';
-    para.segs.forEach((s, i) => { inner += (i ? s.g : '') + `<span class="s" data-p="${s.p}" data-k="${s.k}">${esc(s.t)}</span>`; });
-    h += `<p${para.h ? ' class="hd"' : ''}>${inner}</p>`;
+/* Сторінки складаються по одній: у кожну кладемо стільки тексту, скільки вміщається
+   (перевіряємо висоту), і показуємо лише поточний екран — без колонок і зсувів. */
+const meas = $('#meas');
+const cmpPos = (a, b) => a.pi - b.pi || a.c - b.c;
+function paraInfo(pa) {
+  if (pa.str == null) {
+    let s = ''; pa.offs = [];
+    pa.segs.forEach((g, i) => { if (i) s += g.g; pa.offs.push(s.length); s += g.t; });
+    pa.str = s;
   }
-  flow.innerHTML = h;
-  R.chunk = ci;
-  measure();
+  return pa;
 }
-function measure() {
-  flow.style.transition = 'none'; flow.style.transform = 'none';
-  $('#frame').scrollLeft = 0; $('#frame').scrollTop = 0;
-  const fr = flow.getBoundingClientRect(), fh = flow.clientHeight || 1; let prevA = 0;
-  // Екран за координатами рядка. Деякі версії iOS повертають координати так, ніби колонки
-  // стоять одна під одною (одна висока колонка) — тоді номер колонки рахуємо за висотою.
-  const scr = (x, y) => Math.max(0, Math.floor(x / R.pitch) + Math.floor(Math.floor(Math.max(0, y) / fh) / R.cols));
-  R.segs = $$('.s', flow).map(el => {
-    const rs = el.getClientRects(), p = +el.dataset.p, k = +el.dataset.k;
-    if (!rs.length) return { p, k, a: prevA, b: prevA };
-    const f = rs[0], l = rs[rs.length - 1];
-    const a = Math.max(prevA, scr(f.left - fr.left + 1, f.top - fr.top + 1));
-    const b = Math.max(a, scr(l.right - fr.left - 1, l.bottom - fr.top - 1));
-    prevA = a; return { p, k, a, b };
+// html частини абзацу [c0, c1); cut — абзац продовжується на наступній сторінці
+function paraHtml(pa, pi, c0, c1, cut) {
+  paraInfo(pa);
+  let h = '';
+  pa.segs.forEach((s, i) => {
+    const a = pa.offs[i], b = a + s.t.length;
+    if (i) { const x = Math.max(a - s.g.length, c0), y = Math.min(a, c1); if (y > x) h += esc(pa.str.slice(x, y)); }
+    const x = Math.max(a, c0), y = Math.min(b, c1);
+    if (y > x) h += `<span class="s" data-p="${s.p}" data-k="${s.k}">${esc(pa.str.slice(x, y))}</span>`;
   });
-  const byRects = R.segs.reduce((mx, s) => Math.max(mx, s.b), 0) + 1;
-  // ширину беремо лише тоді, коли координати рядків не допомогли (усе «на одному екрані»)
-  const byWidth = Math.ceil((flow.scrollWidth + 2) / R.pitch);
-  R.total = byRects > 1 || R.segs.length < 30 ? byRects : Math.max(byRects, byWidth, 1);
-  R.filled = new Set();
-  for (const s of R.segs) for (let n = s.a; n <= s.b; n++) R.filled.add(n);
+  const cls = [pa.h ? 'hd' : '', c0 > 0 ? 'cont' : '', cut ? 'cut' : ''].filter(Boolean).join(' ');
+  return `<p data-pi="${pi}" data-c="${c0}"${cls ? ` class="${cls}"` : ''}>${h}</p>`;
 }
-// наступний / попередній екран, на якому є текст (порожні пропускаємо); -1 — немає
-function textScreen(from, dir) {
-  if (R.filled.size <= 1 && R.total > 1) return from >= 0 && from < R.total ? from : -1;
-  for (let n = from; n >= 0 && n < R.total; n += dir) if (R.filled.has(n)) return n;
-  return -1;
+function paginate(paras) {
+  const pages = [], fits = () => meas.scrollHeight <= R.colH + 1;
+  const tryHtml = h => { meas.insertAdjacentHTML('beforeend', h); const ok = fits(); meas.lastElementChild.remove(); return ok; };
+  let pi = 0, c = 0;
+  while (pi < paras.length) {
+    meas.innerHTML = '';
+    const start = { pi, c }; let placed = 0;
+    while (pi < paras.length) {
+      const pa = paraInfo(paras[pi]), len = pa.str.length;
+      meas.insertAdjacentHTML('beforeend', paraHtml(pa, pi, c, len, false));
+      if (fits()) { placed++; pi++; c = 0; continue; }
+      meas.lastElementChild.remove();
+      // скільки слів цього абзацу ще вміщається
+      const br = [];
+      for (let i = c + 1; i < len; i++) if (/\s/.test(pa.str[i - 1]) && !/\s/.test(pa.str[i])) br.push(i);
+      let lo = 0, hi = br.length - 1, best = -1;
+      while (lo <= hi) { const mid = (lo + hi) >> 1; if (tryHtml(paraHtml(pa, pi, c, br[mid], true))) { best = mid; lo = mid + 1; } else hi = mid - 1; }
+      if (best >= 0) c = br[best];
+      else if (!placed) { c = br.length ? br[0] : len; if (c >= len) { pi++; c = 0; } }
+      else if (paras[pi - 1].h && placed > 1) pi--;   // заголовок не лишаємо внизу сторінки
+      break;
+    }
+    pages.push({ start, end: { pi, c } });
+  }
+  meas.innerHTML = '';
+  if (!pages.length) pages.push({ start: { pi: 0, c: 0 }, end: { pi: 0, c: 0 } });
+  return pages;
 }
-function topSeg(screen) {
-  const L = R.segs; let last = -1;
-  for (let i = 0; i < L.length; i++) { if (L[i].a < screen) last = i; else break; }
-  if (last >= 0 && L[last].b >= screen) return L[last];
-  return L[last + 1] || L[last] || null;
+function pageHtml(pg) {
+  const paras = R.chunks[R.chunk].paras; let h = '';
+  for (let pi = pg.start.pi; pi < paras.length && (pi < pg.end.pi || (pi === pg.end.pi && pg.end.c > 0)); pi++) {
+    const pa = paraInfo(paras[pi]), cut = pi === pg.end.pi;
+    h += paraHtml(pa, pi, pi === pg.start.pi ? pg.start.c : 0, cut ? pg.end.c : pa.str.length, cut);
+  }
+  return h;
 }
-function setScreen(n, anim) {
+function renderChunk(ci) {
+  R.chunk = ci;
+  R.pages = paginate(R.chunks[ci].paras);
+  R.total = Math.max(1, Math.ceil(R.pages.length / R.cols));
+}
+function posAt(q) {
+  const paras = R.chunks[R.chunk].paras, pa = paras[Math.min(q.pi, paras.length - 1)];
+  if (!pa) return null;
+  paraInfo(pa); let i = 0;
+  while (i + 1 < pa.segs.length && pa.offs[i + 1] <= q.c) i++;
+  return { p: pa.segs[i].p, k: pa.segs[i].k };
+}
+function topSeg(screen) { const pg = R.pages[screen * R.cols]; return pg ? posAt(pg.start) : null; }
+// dir: 1 / -1 — гортання з анімацією, 0 — без
+function setScreen(n, dir) {
   R.screen = clamp(n, 0, R.total - 1);
-  $('#frame').scrollLeft = 0;
-  flow.style.transition = anim ? 'transform .34s cubic-bezier(.22,.8,.26,1)' : 'none';
-  flow.style.transform = `translate3d(${-R.screen * R.pitch}px,0,0)`;
+  const ps = R.pages.slice(R.screen * R.cols, R.screen * R.cols + R.cols);
+  flow.innerHTML = ps.map(pg => `<div class="tx col" style="width:${R.colW}px;height:${R.colH}px">${pageHtml(pg)}</div>`).join('');
+  if (dir && flow.animate) flow.animate([{ opacity: .3, transform: `translateX(${dir * 26}px)` }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'ease-out' });
   const t = topSeg(R.screen);
   if (t) { R.p = t.p; R.k = t.k; }
   updateChrome(); savePos();
@@ -879,12 +911,20 @@ function textGo(pos) {
   if (!R.chunks || !R.chunks.length) return;
   const ci = findChunk(pos);
   if (ci !== R.chunk) renderChunk(ci);
-  let i = R.segs.findIndex(s => s.p === pos.p && s.k === pos.k);
-  if (i < 0) i = R.segs.findIndex(s => s.p >= pos.p);
-  if (i < 0) i = R.segs.length - 1;
-  setScreen(i >= 0 ? R.segs[i].a : 0, false);
+  const paras = R.chunks[ci].paras;
+  let tq = null, ts = null;
+  for (const exact of [true, false]) {
+    for (let pi = 0; pi < paras.length && !tq; pi++) {
+      const pa = paraInfo(paras[pi]);
+      pa.segs.forEach((s, i) => { if (!tq && (exact ? s.p === pos.p && s.k === pos.k : s.p >= pos.p)) { tq = { pi, c: pa.offs[i] }; ts = s; } });
+    }
+    if (tq) break;
+  }
+  let j = tq ? R.pages.findIndex(pg => cmpPos(tq, pg.end) < 0) : R.pages.length - 1;
+  if (j < 0) j = R.pages.length - 1;
+  setScreen(Math.floor(j / R.cols), 0);
   // екран може починатися з кінця попередньої сторінки — показуємо ту, яку просили
-  if (i >= 0 && R.segs[i].p >= pos.p) { R.p = R.segs[i].p; R.k = R.segs[i].k; updateChrome(); }
+  if (ts && ts.p >= pos.p) { R.p = ts.p; R.k = ts.k; updateChrome(); }
 }
 
 /* =====================================================================
@@ -931,18 +971,16 @@ function next() {
   closePop();
   if (R.mode === 'orig') { if (R.p < R.N) { R.p++; R.k = 0; renderOrig(R.p); updateChrome(); savePos(); } else toast('Це остання сторінка'); return; }
   if (!R.chunks) return;
-  const n = textScreen(R.screen + 1, 1);
-  if (n >= 0) setScreen(n, true);
-  else if (R.chunk < R.chunks.length - 1) { renderChunk(R.chunk + 1); setScreen(Math.max(0, textScreen(0, 1)), false); }
+  if (R.screen < R.total - 1) setScreen(R.screen + 1, 1);
+  else if (R.chunk < R.chunks.length - 1) { renderChunk(R.chunk + 1); setScreen(0, 1); }
   else toast('Кінець книжки');
 }
 function prev() {
   closePop();
   if (R.mode === 'orig') { if (R.p > 1) { R.p--; R.k = 0; renderOrig(R.p); updateChrome(); savePos(); } return; }
   if (!R.chunks) return;
-  const n = textScreen(R.screen - 1, -1);
-  if (n >= 0) setScreen(n, true);
-  else if (R.chunk > 0) { renderChunk(R.chunk - 1); setScreen(Math.max(0, textScreen(R.total - 1, -1)), false); }
+  if (R.screen > 0) setScreen(R.screen - 1, -1);
+  else if (R.chunk > 0) { renderChunk(R.chunk - 1); setScreen(R.total - 1, -1); }
 }
 function goPage(p) {
   p = clamp(p, 1, R.N);
@@ -955,7 +993,7 @@ function goPos(pos) {
   else if (R.chunks) textGo(pos);
 }
 function currentPos() {
-  if (R.mode === 'text' && R.chunks && R.segs.length) { const t = topSeg(R.screen); if (t) return { p: t.p, k: t.k }; }
+  if (R.mode === 'text' && R.chunks && R.chunk >= 0 && R.pages.length) { const t = topSeg(R.screen); if (t) return t; }
   return { p: R.p, k: R.mode === 'text' ? R.k : 0 };
 }
 let saveT;
@@ -1246,7 +1284,9 @@ function getContext(range) {
   if (!cont) return { full: sel, start: 0, end: sel.length };
   const pre = document.createRange(); pre.selectNodeContents(cont);
   try { pre.setEnd(range.startContainer, range.startOffset); } catch (e) { return { full: sel, start: 0, end: sel.length }; }
-  const full = cont.textContent, start = pre.toString().length;
+  // абзац може бути розірваний між сторінками — беремо його повний текст
+  const pa = cont.dataset.pi != null && R.chunks && R.chunks[R.chunk] && R.chunks[R.chunk].paras[+cont.dataset.pi];
+  const full = pa ? paraInfo(pa).str : cont.textContent, start = (pa ? +cont.dataset.c : 0) + pre.toString().length;
   return { full, start, end: Math.min(full.length, start + sel.length) };
 }
 function sentenceAt(full, pos) {
@@ -1492,8 +1532,9 @@ $('#btnDict').onclick = openDict;
    ===================================================================== */
 function snippetAt(pos) {
   if (R.mode === 'text') {
-    const el = flow.querySelector(`.s[data-p="${pos.p}"][data-k="${pos.k}"]`);
-    if (el) return el.textContent.replace(/​/g, '').trim().slice(0, 140);
+    const ci = R.segChunk && R.segChunk.get(pos.p + ':' + pos.k);
+    if (ci != null) for (const pa of R.chunks[ci].paras) for (const s of pa.segs)
+      if (s.p === pos.p && s.k === pos.k) return s.t.replace(/​/g, '').trim().slice(0, 140);
   }
   const pg = R.raw && R.raw[pos.p - 1];
   return pg && pg[0] ? pg[0].t.slice(0, 140) : '';
