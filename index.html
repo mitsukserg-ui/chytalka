@@ -1,0 +1,1629 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>Читалка</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Читалка">
+<meta name="theme-color" content="#efe5cd">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{--rfont:'Literata',Georgia,serif;--fs:19px;--lh:1.6;--sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px)}
+body[data-theme=day]{--desk:#e6e3dc;--paper:#fffefa;--ink:#1d1b18;--muted:#8b857b;--ui:#fbfaf7;--uiInk:#2a2824;--line:#e1ddd4;--hover:rgba(0,0,0,.06);--accent:#9a4f24;--sel:rgba(255,196,0,.35);--pdfFilter:none}
+body[data-theme=sepia]{--desk:#d6cab1;--paper:#f5ecd7;--ink:#3b2f21;--muted:#8d7c63;--ui:#efe5cd;--uiInk:#3b2f21;--line:#d9cbab;--hover:rgba(80,50,10,.08);--accent:#8a4b1f;--sel:rgba(214,140,40,.32);--pdfFilter:sepia(.28) saturate(1.1) brightness(.97)}
+body[data-theme=night]{--desk:#0f0f10;--paper:#1c1b19;--ink:#d3ccbf;--muted:#857e72;--ui:#171716;--uiInk:#d9d3c7;--line:#2e2c29;--hover:rgba(255,255,255,.07);--accent:#d49a6a;--sel:rgba(212,154,106,.35);--pdfFilter:invert(.88) hue-rotate(180deg) brightness(.95)}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;overscroll-behavior:none}
+body{font-family:-apple-system,'SF Pro Text','Segoe UI',system-ui,sans-serif;background:var(--desk);color:var(--uiInk);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+input,select{font:inherit;color:inherit}
+input[type=text],input:not([type]),select{font-size:16px}
+svg{display:block;flex:none}
+::selection{background:var(--sel)}
+.ib{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:42px;height:42px;padding:0 8px;border:0;border-radius:11px;background:transparent;font-weight:600;font-size:16px;flex:none}
+.ib:active{background:var(--hover)}
+@media (hover:hover){.ib:hover{background:var(--hover)}}
+.ib.on{color:var(--accent)}
+.ib.sm{min-width:34px;height:34px;padding:0 6px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--ui);font-weight:600;font-size:15px;line-height:1.2}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.sm{min-height:34px;padding:0 12px;font-size:14px}
+.btn.block{width:100%;margin-top:10px}
+.btn:active{filter:brightness(.94)}
+.btn[disabled]{opacity:.5}
+
+/* ---------- бібліотека ---------- */
+#library{position:fixed;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(40px + var(--sab))}
+.lib-h{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:6px;padding:calc(10px + var(--sat)) max(14px,var(--sar)) 10px max(14px,var(--sal));background:var(--ui);border-bottom:1px solid var(--line)}
+.lib-h h1{margin:0;font:600 22px/1.2 'Literata',Georgia,serif;flex:1}
+.banner{margin:14px max(14px,4vw) 0;padding:12px 14px;border-radius:14px;background:var(--ui);border:1px solid var(--line);font-size:14px;line-height:1.45;display:flex;gap:12px;align-items:center}
+.banner b{color:var(--accent)}
+.banner .grow{flex:1}
+.banner .bar{margin-top:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:26px 18px;padding:22px max(14px,4vw)}
+.card{position:relative;cursor:pointer;min-width:0}
+.cover{aspect-ratio:2/3;border-radius:3px 6px 6px 3px;overflow:hidden;background:var(--paper);box-shadow:0 1px 2px rgba(0,0,0,.15),0 12px 24px -10px rgba(0,0,0,.4);position:relative}
+.cover::before{content:'';position:absolute;inset:0 auto 0 0;width:9px;background:linear-gradient(90deg,rgba(0,0,0,.2),rgba(255,255,255,.15),transparent)}
+.cover img{width:100%;height:100%;object-fit:cover;display:block}
+.cover-ph{padding:16px 12px;font:600 14px/1.3 'Literata',Georgia,serif;color:var(--ink)}
+.meta .t{margin-top:9px;font-weight:600;font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta .sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+.bar{height:4px;border-radius:2px;background:var(--line);margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.del{position:absolute;top:6px;right:6px;width:34px;height:34px;border-radius:9px;border:0;background:rgba(0,0,0,.5);color:#fff;display:flex;align-items:center;justify-content:center}
+.empty{margin:7vh max(14px,4vw);text-align:center;padding:36px 20px;border:2px dashed var(--line);border-radius:18px;color:var(--muted);line-height:1.5}
+.empty h2{color:var(--uiInk);font:600 20px 'Literata',Georgia,serif;margin:0 0 8px}
+
+/* ---------- читалка ---------- */
+#reader{position:fixed;inset:0;display:flex;flex-direction:column}
+.topbar,.botbar{display:flex;align-items:center;gap:2px;background:var(--ui);z-index:3;flex:none}
+.topbar{padding:calc(4px + var(--sat)) max(6px,var(--sar)) 4px max(6px,var(--sal));border-bottom:1px solid var(--line)}
+.botbar{padding:4px max(8px,var(--sar)) calc(4px + var(--sab)) max(8px,var(--sal));border-top:1px solid var(--line);gap:6px}
+.topbar .title{flex:1;min-width:0;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px}
+.segc{display:inline-flex;background:var(--hover);border-radius:11px;padding:3px;flex:none}
+.segc button{border:0;background:transparent;padding:8px 14px;border-radius:9px;font-size:14.5px;font-weight:600;color:var(--muted)}
+.segc button.on{background:var(--paper);color:var(--uiInk);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.pg{display:flex;align-items:center;gap:6px;font-size:14px;white-space:nowrap;color:var(--muted);flex:1;justify-content:center}
+.pg input{width:66px;height:36px;text-align:center;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--uiInk);font-weight:600;font-size:16px}
+#pgRange{flex:2;min-width:60px;accent-color:var(--accent)}
+#stage{position:relative;flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;touch-action:manipulation;background:var(--desk);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.paper{position:relative;background:var(--paper);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12),0 14px 40px -14px rgba(0,0,0,.4);border-radius:2px;flex:none}
+.paper.bleed{box-shadow:none;border-radius:0}
+.paper.spread::after{content:'';position:absolute;top:0;bottom:0;left:50%;width:70px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,rgba(0,0,0,.05) 40%,rgba(0,0,0,.13) 50%,rgba(0,0,0,.05) 60%,transparent);pointer-events:none}
+#frame{position:absolute;overflow:hidden}
+#flow{font-family:var(--rfont);font-size:var(--fs);line-height:var(--lh);text-align:justify;hyphens:auto;-webkit-hyphens:auto;column-fill:auto;orphans:2;widows:2;overflow-wrap:break-word;-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;font-kerning:normal;text-rendering:optimizeLegibility}
+#flow p{margin:0;text-indent:1.4em}
+#flow p.hd{text-indent:0;text-align:center;font-weight:600;margin:.9em 0 .7em;break-after:avoid;hyphens:manual;-webkit-hyphens:manual}
+#flow p.hd + p:not(.hd){text-indent:0}
+#folio{position:absolute;left:0;right:0;text-align:center;font:14px var(--rfont);color:var(--muted);pointer-events:none}
+#orig{position:relative;width:100%;height:100%}
+#orig canvas{display:block;width:100%;height:100%;animation:fade .18s ease}
+body.tint #orig canvas{filter:var(--pdfFilter)}
+@keyframes fade{from{opacity:.25}to{opacity:1}}
+.r-text #orig,.r-orig #frame,.r-orig #folio{display:none}
+.textLayer{position:absolute;inset:0;overflow:hidden;line-height:1;text-size-adjust:none;-webkit-text-size-adjust:none;transform-origin:0 0;z-index:2;-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+.textLayer span,.textLayer br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%}
+.textLayer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:-1;cursor:default;-webkit-user-select:none;user-select:none}
+.textLayer ::selection{background:var(--sel)}
+.busy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4;background:color-mix(in srgb,var(--desk) 70%,transparent)}
+.busy-card{background:var(--ui);border:1px solid var(--line);border-radius:16px;padding:22px 22px;width:min(360px,88%);text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.2);line-height:1.45}
+.busy-card .bar{height:6px;margin:14px 0 16px}
+
+/* повноекранний режим */
+body.fs .topbar,body.fs .botbar{display:none}
+body.fs #stage{background:var(--paper)}
+body.fs .paper{box-shadow:none;border-radius:0}
+body.fs.r-orig-mode #stage{background:var(--desk)}
+#lockBtn{position:fixed;top:calc(8px + var(--sat));right:calc(8px + var(--sar));z-index:20;width:46px;height:46px;border-radius:50%;border:0;display:none;align-items:center;justify-content:center;background:var(--hover);color:var(--ink);opacity:.35;transition:opacity .2s}
+body.fs #lockBtn{display:flex}
+body.locked #lockBtn{opacity:.75;color:var(--accent)}
+
+/* переклад */
+.pop{position:fixed;z-index:30;width:min(380px,calc(100vw - 16px));background:var(--ui);color:var(--uiInk);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 44px rgba(0,0,0,.3);padding:12px 14px 14px;line-height:1.4}
+@media (max-width:700px){.pop{left:calc(8px + var(--sal))!important;right:calc(8px + var(--sar));width:auto;top:auto!important;bottom:calc(64px + var(--sab))}
+  body.fs .pop{bottom:calc(14px + var(--sab))}}
+.pop-top{display:flex;align-items:center;gap:4px}
+.pop-word{flex:1;font:600 19px/1.3 var(--rfont);min-width:0;overflow-wrap:anywhere}
+.pop-base{font-size:13.5px;color:var(--muted);margin-top:2px}
+.pop-base b{color:var(--uiInk)}
+.tag{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:20px;background:var(--hover);color:var(--accent);margin-left:4px;vertical-align:1px}
+.pop-tr{font-size:18px;font-weight:600;margin-top:8px;color:var(--accent)}
+.pop-alts{font-size:13.5px;color:var(--muted);margin-top:4px}
+.pop-alts i{font-style:normal;color:var(--uiInk)}
+.pop-act{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.pop-src{font-size:12px;color:var(--muted);margin-left:auto}
+.dots::after{content:'…';animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.2}}
+
+/* панелі */
+#backdrop{position:fixed;inset:0;background:rgba(0,0,0,.32);z-index:40}
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(440px,100vw);z-index:41;background:var(--ui);color:var(--uiInk);box-shadow:-10px 0 40px rgba(0,0,0,.25);display:flex;flex-direction:column}
+.sheet.wide{width:min(860px,100vw)}
+@media (max-width:700px){
+  .sheet,.sheet.wide{top:auto;left:0;right:0;width:100%;max-height:90%;border-radius:18px 18px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+  .sheet.wide{height:90%}
+  .sheet::before{content:'';display:block;width:40px;height:5px;border-radius:3px;background:var(--line);margin:8px auto 0}
+  .wideonly{display:none!important}
+}
+.sheet-h{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.sheet-h h2{margin:0;font:600 19px 'Literata',Georgia,serif;flex:1}
+.sheet-b{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px calc(24px + var(--sab))}
+.sheet input[type=search],.sheet select,.num{height:38px;border:1px solid var(--line);border-radius:9px;background:var(--paper);padding:0 10px;font-size:16px}
+.num{width:84px;text-align:center}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.row>label{font-size:15px}
+.row>div{display:flex;align-items:center;gap:6px}
+.big{font-size:22px!important;min-width:56px!important}
+.chk{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line);font-size:15px;cursor:pointer}
+.chk input{width:20px;height:20px;accent-color:var(--accent);flex:none}
+.group h3{font-size:16px;margin:22px 0 4px}
+.hint{font-size:13px;color:var(--muted);line-height:1.5}
+.ok{color:#3c8a3c;font-weight:600}
+.mk{display:flex;gap:10px;align-items:flex-start;padding:13px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.mk .pgn{font-weight:700;min-width:64px;color:var(--accent)}
+.mk .sn{flex:1;font:15px/1.4 var(--rfont);color:var(--uiInk)}
+.mk .dt{font-size:12px;color:var(--muted);margin-top:3px;font-family:-apple-system,'Segoe UI',sans-serif}
+.dl{list-style:none;margin:0;padding:0}
+.dl li{display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line)}
+.dl .n{color:var(--muted);width:28px;text-align:right;font-size:13px;padding-top:3px;flex:none}
+.dl .c{flex:1;min-width:0}
+.dl .es{font:600 17px/1.3 var(--rfont)}
+.dl .uk{font-size:16px;margin-top:3px;color:var(--accent);outline:none;border-radius:4px}
+.dl .uk:focus{outline:2px solid var(--accent);background:var(--paper);color:var(--uiInk)}
+.dl .sm{font-size:12px;color:var(--muted);margin-top:3px}
+.dl .a{display:flex;flex:none}
+#toast{position:fixed;left:50%;bottom:calc(90px + var(--sab));transform:translateX(-50%) translateY(20px);z-index:60;background:#2a2723;color:#f3eee5;padding:10px 16px;border-radius:12px;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:.25s;max-width:min(520px,92vw);text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%)}
+@media (max-width:700px){.topbar .title{font-size:14px}#pgRange{display:none}}
+</style>
+</head>
+<body data-theme="sepia">
+
+<!-- ================= БІБЛІОТЕКА ================= -->
+<section id="library">
+  <header class="lib-h">
+    <h1>Мої книжки</h1>
+    <button class="ib" id="libCloud" title="Резервна копія в iCloud" data-icon="cloud"></button>
+    <button class="ib" id="libDict" title="Словник" data-icon="dict"></button>
+    <button class="ib on" id="libAdd" title="Додати книжку" data-icon="plus"></button>
+    <input type="file" id="fileIn" accept="application/pdf,.pdf" multiple hidden>
+  </header>
+  <div class="banner" id="installBanner" hidden>
+    <div class="grow"><b>Встановіть читалку на iPhone:</b> натисніть унизу Safari кнопку «Поділитися» <span style="white-space:nowrap">(квадрат зі стрілкою)</span> → «На екран „Додому“». Після цього вона відкриватиметься як окремий додаток і працюватиме без Інтернету. Книжки додавайте вже у встановленому додатку.</div>
+  </div>
+  <div class="banner" id="trBanner" hidden>
+    <div class="grow"><b>Офлайн-перекладач</b> ще не завантажено. Щоб переклад працював без Інтернету, завантажте його один раз (<span class="trSize">≈ 70 МБ</span>, краще через Wi-Fi).
+      <div class="bar" hidden><i></i></div></div>
+    <button class="btn primary sm trDl">Завантажити</button>
+  </div>
+  <div class="banner" id="backupBanner" hidden>
+    <div class="grow">Є нові слова чи книжки, яких немає в резервній копії. <b>Збережіть копію в iCloud</b>, щоб нічого не загубити.</div>
+    <button class="btn sm" id="backupBannerBtn">Зберегти</button>
+  </div>
+  <div class="empty" id="empty" hidden>
+    <h2>Тут поки що порожньо</h2>
+    Натисніть <b>+</b> угорі й виберіть PDF-книжку з «Файлів» (наприклад, з iCloud Drive).
+  </div>
+  <div class="grid" id="grid"></div>
+</section>
+
+<!-- ================= ЧИТАЛКА ================= -->
+<section id="reader" class="r-text" hidden>
+  <header class="topbar">
+    <button class="ib" id="btnBack" title="До бібліотеки" data-icon="back"></button>
+    <div class="title" id="rTitle"></div>
+    <button class="ib" id="btnMark" title="Закладка тут" data-icon="bookmark"></button>
+    <button class="ib" id="btnMarks" title="Мої закладки" data-icon="list"></button>
+    <button class="ib" id="btnDict" title="Словник" data-icon="dict"></button>
+  </header>
+  <main id="stage">
+    <div class="paper" id="paper">
+      <div id="frame"><div id="flow" lang="es"></div></div>
+      <div id="orig"><div id="tl" class="textLayer"></div></div>
+      <div id="folio"></div>
+    </div>
+    <div class="busy nostage" id="busy" hidden>
+      <div class="busy-card">
+        <div id="busyText">Відкриваю книжку…</div>
+        <div class="bar" id="busyBarW"><i id="busyBar"></i></div>
+        <button class="btn" id="busyOrig">Поки що читати оригінал</button>
+      </div>
+    </div>
+  </main>
+  <footer class="botbar">
+    <button class="ib" id="btnPrev" title="Попередня сторінка" data-icon="left"></button>
+    <label class="pg">стор. <input id="pgIn" inputmode="numeric" enterkeyhint="go" autocomplete="off"> <span id="pgOf"></span></label>
+    <input type="range" id="pgRange" min="1" value="1">
+    <button class="ib" id="btnNext" title="Наступна сторінка" data-icon="right"></button>
+    <button class="ib" id="btnSettings" title="Шрифт і налаштування">Aa</button>
+    <button class="ib" id="btnFs" title="На весь екран" data-icon="expand"></button>
+  </footer>
+</section>
+<button id="lockBtn" class="nostage" title="Блокування екрана" data-icon="unlock"></button>
+
+<!-- ================= ПЕРЕКЛАД ================= -->
+<div class="pop" id="pop" hidden>
+  <div class="pop-top">
+    <div class="pop-word" id="popWord"></div>
+    <button class="ib sm" id="popSay" title="Вимова" data-icon="speak"></button>
+    <button class="ib sm" id="popX" title="Закрити" data-icon="x"></button>
+  </div>
+  <div class="pop-base" id="popBase"></div>
+  <div class="pop-tr" id="popTr"></div>
+  <div class="pop-alts" id="popAlts"></div>
+  <div class="pop-act">
+    <button class="btn sm" id="popSave"></button>
+    <span class="pop-src" id="popSrc"></span>
+  </div>
+</div>
+
+<!-- ================= ПАНЕЛІ ================= -->
+<div id="backdrop" hidden></div>
+
+<aside class="sheet" id="marksSheet" hidden>
+  <div class="sheet-h"><h2>Закладки</h2><button class="btn sm" id="marksAdd">+ Додати тут</button><button class="ib" data-close data-icon="x"></button></div>
+  <div class="sheet-b" id="marksList"></div>
+</aside>
+
+<aside class="sheet" id="setSheet" hidden>
+  <div class="sheet-h"><h2>Читання</h2><button class="ib" data-close data-icon="x"></button></div>
+  <div class="sheet-b">
+    <div class="row"><label>Вигляд</label><div class="segc" id="modeSeg"><button data-mode="text">Текст</button><button data-mode="orig">Оригінал PDF</button></div></div>
+    <div class="row"><label>Розмір шрифту</label><div><button class="ib big" id="sSm">A−</button><b id="sizeVal" style="min-width:28px;text-align:center"></b><button class="ib big" id="sBg">A+</button></div></div>
+    <div class="row"><label>Тема</label><div class="segc" id="themeSeg"><button data-v="day">Денна</button><button data-v="sepia">Сепія</button><button data-v="night">Нічна</button></div></div>
+    <div class="row"><label>Шрифт</label><select id="fontSel"><option value="Literata">Literata</option><option value="PT Serif">PT Serif</option><option value="Georgia">Georgia</option><option value="Sans">Без зарубок</option></select></div>
+    <div class="row"><label>Міжрядковий інтервал</label><input type="range" id="lhRange" min="1.3" max="2.1" step="0.05"></div>
+    <div class="row wideonly"><label>Сторінки на екрані</label><div class="segc" id="spreadSeg"><button data-v="auto">Авто</button><button data-v="1">Одна</button><button data-v="2">Розворот</button></div></div>
+    <label class="chk"><input type="checkbox" id="tintChk"> Тонувати сторінки PDF під тему</label>
+    <label class="chk"><input type="checkbox" id="autoChk"> Автоматично додавати виділене в словник</label>
+    <div class="group">
+      <h3>Нумерація сторінок</h3>
+      <p class="hint">Якщо номер не збігається з надрукованим у книжці — введіть, який номер має поточна сторінка в самій книжці.</p>
+      <div class="row"><label>Ця сторінка в книжці має номер</label><div><input id="numIn" class="num" inputmode="numeric"><button class="btn sm" id="numApply">OK</button></div></div>
+      <label class="chk" id="lblWrap"><input type="checkbox" id="lblChk"> Використовувати нумерацію, вбудовану в PDF</label>
+    </div>
+    <div class="group">
+      <h3>Офлайн-перекладач</h3>
+      <p class="hint" id="trStatus">Перевіряю…</p>
+      <div class="bar" id="trBar" hidden><i></i></div>
+      <button class="btn block trDl" id="trDlBtn" hidden>Завантажити офлайн-перекладач</button>
+    </div>
+    <div class="group">
+      <h3>Резервна копія</h3>
+      <button class="btn block" id="setCloud">Зберегти / відновити копію в iCloud</button>
+    </div>
+    <div class="group">
+      <h3>Як користуватися</h3>
+      <p class="hint">
+        Гортати: дотик до лівого чи правого краю сторінки або свайп.<br>
+        Переклад: натисніть і потримайте слово, за потреби розтягніть виділення на кілька слів.<br>
+        Кнопка ⛶ — на весь екран. Дотик до центру сторінки повертає назад. Замок у куті блокує випадкові дотики — тоді гортати можна лише свайпом.<br>
+        З Інтернетом переклад робить Google Translate, без Інтернету — вбудований офлайн-перекладач.
+      </p>
+    </div>
+  </div>
+</aside>
+
+<aside class="sheet" id="cloudSheet" hidden>
+  <div class="sheet-h"><h2>Резервна копія в iCloud</h2><button class="ib" data-close data-icon="x"></button></div>
+  <div class="sheet-b">
+    <p class="hint">Усе (книжки, словник, закладки, місце читання) зберігається в самому телефоні й працює без Інтернету. Щоб мати копію в iCloud, збережіть файл копії в iCloud Drive: у меню, що відкриється, виберіть <b>«Зберегти у Файли» → iCloud Drive</b>. На іншому iPhone (наприклад, у дружини) натисніть «Відновити з копії» і виберіть цей файл.</p>
+    <p class="hint" id="lastBackup"></p>
+    <label class="chk"><input type="checkbox" id="bkBooks" checked> Разом із книжками (PDF)</label>
+    <button class="btn primary block" id="bkMake">Підготувати копію</button>
+    <button class="btn primary block" id="bkShare" hidden>Зберегти в iCloud…</button>
+    <div class="bar" id="bkBar" hidden><i></i></div>
+    <button class="btn block" id="bkRestore">Відновити з копії…</button>
+    <input type="file" id="bkIn" accept=".zip,application/zip" hidden>
+    <p class="hint">При відновленні нічого не видаляється: додаються книжки й слова, яких ще немає, а місце читання береться з новішої версії.</p>
+  </div>
+</aside>
+
+<aside class="sheet wide" id="dictSheet" hidden>
+  <div class="sheet-h">
+    <h2>Словник <small id="dictCount" style="font:500 13px -apple-system,'Segoe UI',sans-serif;color:var(--muted)"></small></h2>
+    <button class="ib" id="dictExport" title="Експорт CSV" data-icon="download"></button>
+    <button class="ib" data-close data-icon="x"></button>
+    <div style="display:flex;gap:8px;width:100%">
+      <input type="search" id="dictSearch" placeholder="Пошук…" style="flex:1;min-width:0">
+      <select id="dictFilter"><option value="all">Усі книжки</option><option value="book">Ця книжка</option></select>
+    </div>
+  </div>
+  <div class="sheet-b">
+    <ul class="dl" id="dictBody"></ul>
+    <p class="hint">Щоб виправити переклад, торкніться його.</p>
+  </div>
+</aside>
+
+<div id="toast"></div>
+
+<script src="lib/pdf.min.js"></script>
+<script src="connectors.js"></script>
+<script src="connectors-uk.js"></script>
+<script type="module" src="offline-tr.js"></script>
+<script>
+'use strict';
+/* =====================================================================
+   Допоміжне
+   ===================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const isNarrow = () => innerWidth < 700;
+
+const ICONS = {
+  back: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  dict: '<path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/>',
+  bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
+  bookmarkOn: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" fill="currentColor"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  expand: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
+  lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  unlock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
+  trash: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  left: '<path d="m15 18-6-6 6-6"/>',
+  right: '<path d="m9 18 6-6-6-6"/>',
+  speak: '<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+  cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+};
+const icon = n => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+$$('[data-icon]').forEach(el => el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon)));
+const setIcon = (el, n) => { const s = el.querySelector('svg'); if (s) s.outerHTML = icon(n); else el.insertAdjacentHTML('afterbegin', icon(n)); };
+
+let toastT;
+function toast(msg, ms = 2600) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms);
+}
+function safeInsets() {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+  document.body.appendChild(d); const cs = getComputedStyle(d);
+  const r = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
+  d.remove(); return r;
+}
+
+/* =====================================================================
+   Налаштування
+   ===================================================================== */
+const DEF = { theme: 'sepia', font: 'Literata', size: innerWidth < 700 ? 19 : 20, lh: 1.6, spread: 'auto', autoAdd: true, tint: true, lastBackup: 0, dirtyAt: 0 };
+let S = { ...DEF };
+try { Object.assign(S, JSON.parse(localStorage.getItem('chytalka.settings') || '{}')); } catch (e) {}
+function saveS() { try { localStorage.setItem('chytalka.settings', JSON.stringify(S)); } catch (e) {} }
+function markDirty() { S.dirtyAt = Date.now(); saveS(); }
+const FONTS = { 'Literata': "'Literata', Georgia, serif", 'PT Serif': "'PT Serif', Georgia, serif", 'Georgia': "Georgia, 'Times New Roman', serif", 'Sans': "-apple-system, 'Segoe UI', system-ui, sans-serif" };
+function applyLook() {
+  document.body.dataset.theme = S.theme;
+  document.body.classList.toggle('tint', !!S.tint);
+  const st = document.documentElement.style;
+  st.setProperty('--rfont', FONTS[S.font] || FONTS.Literata);
+  st.setProperty('--fs', S.size + 'px');
+  st.setProperty('--lh', S.lh);
+  const tc = getComputedStyle(document.body).getPropertyValue('--ui').trim();
+  if (tc) $('meta[name=theme-color]').content = tc;
+}
+
+/* =====================================================================
+   База даних у телефоні (IndexedDB)
+   ===================================================================== */
+const DB = {
+  db: null,
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('chytalka', 2);
+      r.onupgradeneeded = () => {
+        const d = r.result, has = n => d.objectStoreNames.contains(n);
+        if (!has('books')) d.createObjectStore('books', { keyPath: 'id' });
+        if (!has('files')) d.createObjectStore('files');
+        if (!has('texts')) d.createObjectStore('texts');
+        if (!has('words')) d.createObjectStore('words', { keyPath: 'id', autoIncrement: true });
+        if (!has('marks')) d.createObjectStore('marks', { keyPath: 'id', autoIncrement: true });
+        if (!has('tcache')) d.createObjectStore('tcache');
+      };
+      r.onsuccess = () => { this.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  tx(store, mode, fn) {
+    return new Promise((res, rej) => {
+      const t = this.db.transaction(store, mode);
+      let out; const r = fn(t.objectStore(store));
+      if (r) r.onsuccess = () => { out = r.result; };
+      t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  },
+  get(st, k) { return this.tx(st, 'readonly', s => s.get(k)); },
+  all(st) { return this.tx(st, 'readonly', s => s.getAll()); },
+  put(st, v, k) { return this.tx(st, 'readwrite', s => (k === undefined ? s.put(v) : s.put(v, k))); },
+  del(st, k) { return this.tx(st, 'readwrite', s => s.delete(k)); },
+};
+
+/* =====================================================================
+   Нумерація сторінок (як у книжці)
+   ===================================================================== */
+function labelOf(b, p) {
+  if (b.useLabels && b.labels && b.labels[p - 1]) return b.labels[p - 1];
+  const n = p - (b.offset || 0);
+  return n >= 1 ? String(n) : `[${p}]`;
+}
+function pageFromLabel(b, str) {
+  str = String(str).trim(); if (!str) return null;
+  const N = b.pages;
+  if (b.useLabels && b.labels) {
+    const i = b.labels.findIndex(l => l.toLowerCase() === str.toLowerCase());
+    if (i >= 0) return i + 1;
+  }
+  const m = str.match(/^\[(\d+)\]$/); if (m) return clamp(+m[1], 1, N);
+  const n = parseInt(str, 10); if (isNaN(n)) return null;
+  return clamp(n + (b.offset || 0), 1, N);
+}
+
+/* =====================================================================
+   Бібліотека
+   ===================================================================== */
+let W = []; // словник у пам'яті
+
+async function renderLibrary() {
+  const books = (await DB.all('books')).sort((a, b) => (b.opened || b.added) - (a.opened || a.added));
+  $('#empty').hidden = books.length > 0;
+  $('#grid').innerHTML = books.map(b => {
+    const pct = b.last ? Math.round(b.last.p / b.pages * 100) : 0;
+    return `<article class="card" data-id="${b.id}">
+      <div class="cover">${b.cover ? `<img src="${b.cover}" alt="">` : `<div class="cover-ph">${esc(b.title)}</div>`}</div>
+      <div class="meta"><div class="t">${esc(b.title)}</div>
+        <div class="sub">${b.last ? `стор. ${esc(labelOf(b, b.last.p))} · ${pct}%` : `${b.pages} стор.`}</div>
+        <div class="bar"><i style="width:${pct}%"></i></div></div>
+      <button class="del" title="Видалити книжку" data-del="${b.id}">${icon('trash')}</button>
+    </article>`;
+  }).join('');
+  updateBanners(books.length);
+}
+
+async function updateBanners(nBooks) {
+  const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  $('#installBanner').hidden = !(isIOS && !standalone);
+  const ready = await trReady();
+  $('#trBanner').hidden = ready || trDownloading || !window.OfflineTR;
+  const needBackup = (nBooks > 0 || W.length > 0) && S.dirtyAt > S.lastBackup && Date.now() - S.lastBackup > 3 * 864e5;
+  $('#backupBanner').hidden = !needBackup;
+}
+
+$('#grid').addEventListener('click', async e => {
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    e.stopPropagation();
+    const b = await DB.get('books', del.dataset.del);
+    if (!b || !confirm(`Видалити «${b.title}» з телефону?\nСлова у словнику залишаться.`)) return;
+    await DB.del('books', b.id); await DB.del('files', b.id); await DB.del('texts', b.id);
+    for (const m of (await DB.all('marks')).filter(m => m.bookId === b.id)) await DB.del('marks', m.id);
+    markDirty(); renderLibrary(); return;
+  }
+  const card = e.target.closest('.card');
+  if (card) openBook(card.dataset.id);
+});
+$('#libAdd').onclick = () => $('#fileIn').click();
+$('#fileIn').onchange = e => { importFiles([...e.target.files]); e.target.value = ''; };
+$('#libDict').onclick = () => openDict();
+$('#libCloud').onclick = () => openCloud();
+$('#backupBannerBtn').onclick = () => openCloud();
+document.addEventListener('dragover', e => { if (!$('#library').hidden) e.preventDefault(); });
+document.addEventListener('drop', e => { if ($('#library').hidden) return; e.preventDefault(); importFiles([...e.dataTransfer.files]); });
+
+async function renderThumb(pdf) {
+  try {
+    const page = await pdf.getPage(1);
+    const v1 = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: 300 / v1.width });
+    const c = document.createElement('canvas'); c.width = vp.width | 0; c.height = vp.height | 0;
+    await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+    return c.toDataURL('image/jpeg', 0.8);
+  } catch (e) { return null; }
+}
+
+async function importFiles(files) {
+  const pdfs = files.filter(f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
+  if (!pdfs.length) { toast('Виберіть файл у форматі PDF'); return; }
+  for (const f of pdfs) {
+    toast(`Додаю «${f.name}»…`, 60000);
+    try {
+      const buf = await f.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf.slice(0)), isEvalSupported: false }).promise;
+      let title = f.name.replace(/\.pdf$/i, '').replace(/[_]+/g, ' ').trim();
+      try {
+        const md = await pdf.getMetadata();
+        const t = (md.info && md.info.Title || '').trim();
+        if (t.length > 2 && !/microsoft|\.docx?|untitled|unknown|^document/i.test(t)) title = t;
+      } catch (e) {}
+      let labels = null;
+      try { labels = await pdf.getPageLabels(); } catch (e) {}
+      const meaningful = labels && labels.some((l, i) => l !== String(i + 1));
+      const book = {
+        id: 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        title, file: f.name, pages: pdf.numPages, cover: await renderThumb(pdf),
+        added: Date.now(), opened: 0, offset: 0, labels: meaningful ? labels : null, useLabels: !!meaningful,
+        last: null, mode: null,
+      };
+      await DB.put('files', new Blob([buf], { type: 'application/pdf' }), book.id);
+      await DB.put('books', book);
+      pdf.destroy(); markDirty();
+      toast(`Додано: ${title}`);
+    } catch (e) {
+      console.error(e); toast(`Не вдалося відкрити «${f.name}» — файл пошкоджений або захищений паролем`, 5000);
+    }
+    renderLibrary();
+  }
+}
+
+/* =====================================================================
+   Витяг тексту зі сторінок PDF (для режиму «Текст»)
+   ===================================================================== */
+const TEXT_V = 2;
+const median = a => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; };
+function modeOf(a) { const m = new Map(); let best = a[0], bc = 0; for (const v of a) { const c = (m.get(v) || 0) + 1; m.set(v, c); if (c > bc) { bc = c; best = v; } } return best; }
+function joinLine(a, b) {
+  if (/\p{L}[-­¬]$/u.test(a) && /^\p{Ll}/u.test(b)) return a.slice(0, -1) + b;
+  return a + ' ' + b;
+}
+const ENDS_SENT = /[.!?…:;»"”’)\]]\s*$/;
+
+function extractParas(tc) {
+  const lines = []; let cur = null;
+  const push = () => { if (cur) { cur.text = cur.text.normalize('NFKC').replace(/­/g, '').replace(/\s+/g, ' ').trim(); if (cur.text) lines.push(cur); cur = null; } };
+  for (const it of tc.items) {
+    if (typeof it.str !== 'string') continue;
+    const s = it.str, tr = it.transform, x = tr[4], y = tr[5];
+    const h = Math.abs(tr[3]) || Math.hypot(tr[2], tr[3]) || it.height || 10;
+    if (!s.trim()) { if (cur && s.length) cur.text += ' '; if (it.hasEOL) push(); continue; }
+    if (cur && Math.abs(y - cur.y) > Math.max(h, cur.h) * 0.5) push();
+    if (!cur) cur = { x, y, h, end: x + it.width, text: s };
+    else {
+      const gap = x - cur.end;
+      if (gap > h * 0.12 && !/\s$/.test(cur.text) && !/^\s/.test(s)) cur.text += ' ';
+      cur.text += s; cur.end = Math.max(cur.end, x + it.width); if (h > cur.h) cur.h = h;
+    }
+    if (it.hasEOL) push();
+  }
+  push();
+  const isNum = t => /^[\s\-–—.·]*(\d{1,4}|[ivxlcdm]{1,7})[\s\-–—.·]*$/i.test(t);
+  if (lines.length && isNum(lines[0].text)) lines.shift();
+  if (lines.length && isNum(lines[lines.length - 1].text)) lines.pop();
+  if (!lines.length) return [];
+  const hs = median(lines.map(l => l.h));
+  const gaps = []; for (let i = 1; i < lines.length; i++) { const d = lines[i - 1].y - lines[i].y; if (d > 0 && d < hs * 3) gaps.push(d); }
+  const sp = gaps.length ? median(gaps) : hs * 1.2;
+  const body = lines.filter(l => Math.abs(l.h - hs) < hs * 0.15);
+  const left = modeOf((body.length ? body : lines).map(l => Math.round(l.x / 2) * 2));
+  const ends = (body.length ? body : lines).map(l => l.end).sort((a, b) => a - b);
+  const right = ends[Math.floor(ends.length * 0.85)] || ends[ends.length - 1];
+  const width = Math.max(1, right - left);
+  const paras = []; let P = null;
+  lines.forEach((L, i) => {
+    const off = L.x - left;
+    const big = L.h > hs * 1.2 && L.text.length < 120;
+    const centered = off > hs * 0.6 && L.end < right - hs * 2 && Math.abs((L.x + L.end) / 2 - (left + right) / 2) < hs * 1.5 && L.text.length < 70;
+    const head = big || centered;
+    const ind = off > hs * 0.6 && off < width * 0.35;
+    let brk = !P;
+    if (P) {
+      const prev = lines[i - 1], dy = prev.y - L.y;
+      if (dy > sp * 1.5 || dy < -hs * 0.5) brk = true;
+      else if (head !== P.h) brk = true;
+      else if (ind || centered) brk = true;
+      else if (prev.end < right - hs * 3 && ENDS_SENT.test(prev.text)) brk = true;
+    }
+    if (brk) { P = { t: L.text, h: head, i: ind || head }; paras.push(P); }
+    else P.t = joinLine(P.t, L.text);
+  });
+  return paras.map(p => ({ t: p.t, h: p.h ? 1 : 0, i: p.i ? 1 : 0 }));
+}
+function splitSent(t) {
+  const m = t.match(/[^.!?…]+(?:[.!?…]+["»”’')\]]*)?\s*|[.!?…]+\s*/g);
+  return m && m.length ? m : [t];
+}
+const CHUNK_CHARS = 22000;
+function buildFlow(pages) {
+  const paras = []; let pending = [];
+  for (let p = 1; p <= pages.length; p++) {
+    const list = pages[p - 1] || [];
+    if (!list.length) { pending.push({ p, k: 0, t: '​', g: '' }); continue; }
+    let k = 0;
+    list.forEach((pa, idx) => {
+      const segs = splitSent(pa.t).map(t => ({ p, k: k++, t, g: '' }));
+      const last = paras[paras.length - 1];
+      let cont = false;
+      if (idx === 0 && last && !pending.length && !last.h && !pa.h) {
+        const lt = last.segs[last.segs.length - 1].t.trimEnd();
+        cont = !ENDS_SENT.test(lt) && (/^\p{Ll}/u.test(pa.t) || !pa.i);
+      }
+      if (cont) {
+        const L = last.segs[last.segs.length - 1];
+        if (/\p{L}-$/u.test(L.t.trimEnd()) && /^\p{Ll}/u.test(segs[0].t)) { L.t = L.t.trimEnd().slice(0, -1); segs[0].g = ''; }
+        else { L.t = L.t.trimEnd(); segs[0].g = ' '; }
+        last.segs.push(...segs);
+      } else { paras.push({ h: pa.h, segs: [...pending, ...segs] }); pending = []; }
+    });
+  }
+  if (pending.length) paras.push({ h: 0, segs: pending });
+  const chunks = []; let cur = null, chars = 0;
+  for (const para of paras) {
+    if (!cur || chars > CHUNK_CHARS) { cur = { paras: [] }; chunks.push(cur); chars = 0; }
+    cur.paras.push(para); chars += para.segs.reduce((s, x) => s + x.t.length, 0);
+  }
+  const pageChunk = new Array(pages.length + 2).fill(-1), segChunk = new Map();
+  chunks.forEach((ch, ci) => ch.paras.forEach(pa => pa.segs.forEach(s => {
+    if (pageChunk[s.p] < 0) pageChunk[s.p] = ci;
+    segChunk.set(s.p + ':' + s.k, ci);
+  })));
+  return { chunks, pageChunk, segChunk };
+}
+
+/* =====================================================================
+   Стан читалки
+   ===================================================================== */
+const R = {
+  book: null, pdf: null, N: 0, mode: 'text', p: 1, k: 0, token: 0,
+  raw: null, chunks: null, pageChunk: null, segChunk: null, noText: false, textReady: false,
+  chunk: -1, screen: 0, total: 1, segs: [], pitch: 1, cols: 1,
+  fs: false, locked: false, marks: [], renderToken: 0, renderTask: null,
+};
+const flow = $('#flow'), paper = $('#paper'), stage = $('#stage');
+
+async function openBook(id) {
+  const token = ++R.token;
+  const book = await DB.get('books', id), blob = await DB.get('files', id);
+  if (!book || !blob) { toast('Не вдалося відкрити книжку'); return; }
+  $('#library').hidden = true; $('#reader').hidden = false;
+  showBusy('Відкриваю книжку…', null, false);
+  Object.assign(R, { raw: null, chunks: null, textReady: false, noText: false, chunk: -1, segs: [], screen: 0 });
+  flow.innerHTML = ''; $$('#orig canvas').forEach(c => c.remove()); $('#tl').innerHTML = '';
+  try {
+    const data = new Uint8Array(await blob.arrayBuffer());
+    if (R.pdf) { R.pdf.destroy(); R.pdf = null; }
+    R.pdf = await pdfjsLib.getDocument({ data, isEvalSupported: false }).promise;
+  } catch (e) { console.error(e); toast('Файл книжки пошкоджений'); closeBook(); return; }
+  if (token !== R.token) return;
+  R.book = book; R.N = R.pdf.numPages; book.pages = R.N; book.opened = Date.now(); DB.put('books', book);
+  R.marks = (await DB.all('marks')).filter(m => m.bookId === id);
+  const pos = book.last || { p: 1, k: 0 };
+  R.p = clamp(pos.p, 1, R.N); R.k = pos.k || 0;
+  R.mode = book.mode || 'text';
+  $('#rTitle').textContent = book.title; document.title = book.title;
+  $('#pgRange').max = R.N;
+  const cached = await DB.get('texts', id);
+  if (token !== R.token) return;
+  if (cached && cached.v === TEXT_V) setupText(cached.pages);
+  if (R.textReady && R.noText) R.mode = 'orig';
+  applyMode(); hideBusy();
+  if (R.mode === 'orig') await renderOrig(R.p);
+  else if (R.textReady) { await document.fonts.ready; layoutText(); textGo({ p: R.p, k: R.k }); }
+  updateChrome();
+  if (!R.textReady) extractAll(token);
+}
+
+function closeBook() {
+  R.token++;
+  if (R.fs) exitFs();
+  closePop(); closeSheets();
+  if (R.pdf) { R.pdf.destroy(); R.pdf = null; }
+  R.book = null; flow.innerHTML = ''; $$('#orig canvas').forEach(c => c.remove()); $('#tl').innerHTML = '';
+  $('#reader').hidden = true; $('#library').hidden = false; document.title = 'Читалка';
+  renderLibrary();
+}
+
+function setupText(pages) {
+  R.raw = pages;
+  const chars = pages.reduce((s, pg) => s + pg.reduce((a, x) => a + x.t.length, 0), 0);
+  R.noText = chars < Math.max(300, pages.length * 15);
+  if (!R.noText) Object.assign(R, buildFlow(pages));
+  R.textReady = true; R.chunk = -1;
+}
+
+async function extractAll(token) {
+  const N = R.N, pages = [];
+  if (R.mode === 'text') showBusy('Готую книжку до читання (лише першого разу)…', 0, true);
+  for (let p = 1; p <= N; p++) {
+    if (token !== R.token) return;
+    try {
+      const page = await R.pdf.getPage(p);
+      pages.push(extractParas(await page.getTextContent()));
+      page.cleanup();
+    } catch (e) { pages.push([]); }
+    if (p % 3 === 0 || p === N) { if (R.mode === 'text') showBusy(null, p / N, true); await sleep(0); }
+  }
+  if (token !== R.token) return;
+  try { await DB.put('texts', { v: TEXT_V, pages }, R.book.id); } catch (e) {}
+  setupText(pages);
+  if (R.mode === 'text') {
+    hideBusy();
+    if (R.noText) { toast('У цьому PDF немає текстового шару (схоже на скан) — доступний лише вигляд «Оригінал»', 6000); setMode('orig', true); }
+    else { layoutText(); textGo({ p: R.p, k: R.k }); }
+  }
+}
+function showBusy(text, frac, allowOrig) {
+  $('#busy').hidden = false;
+  if (text != null) $('#busyText').textContent = text;
+  $('#busyBarW').hidden = frac == null;
+  if (frac != null) $('#busyBar').style.width = Math.round(frac * 100) + '%';
+  $('#busyOrig').hidden = !allowOrig;
+}
+function hideBusy() { $('#busy').hidden = true; }
+$('#busyOrig').onclick = () => setMode('orig');
+
+/* =====================================================================
+   Режим «Текст»: сторінки без прокручування
+   ===================================================================== */
+function layoutText() {
+  const W = stage.clientWidth, H = stage.clientHeight;
+  const narrow = W < 700;
+  const ins = R.fs ? safeInsets() : { t: 0, r: 0, b: 0, l: 0 };
+  const m = R.fs || narrow ? 0 : 14;
+  const aw = W - 2 * m, ah = H - 2 * m;
+  const cols = narrow ? 1 : S.spread === '2' ? 2 : S.spread === '1' ? 1 : (aw >= 1000 && aw / ah > 1.25 ? 2 : 1);
+  let pw;
+  if (R.fs || narrow) pw = aw;
+  else if (cols === 1) pw = Math.min(aw, Math.max(Math.min(560, aw), Math.round(ah * 0.74)));
+  else pw = Math.min(aw, Math.round(ah * 1.5));
+  const ph = ah;
+  const padX = Math.max(Math.round(pw * 0.06), narrow ? 20 : 24);
+  const padTop = Math.max(Math.round(ph * 0.04), 18) + ins.t;
+  const padBot = Math.max(Math.round(ph * 0.04), 18) + 22 + ins.b;
+  const gap = padX * 2;
+  const maxCol = Math.round(S.size * 34);
+  let fw = pw - 2 * padX - ins.l - ins.r;
+  fw = cols === 1 ? Math.min(fw, maxCol) : Math.min(fw, maxCol * 2 + gap);
+  fw = Math.floor(fw); const fh = Math.floor(ph - padTop - padBot);
+  paper.style.width = pw + 'px'; paper.style.height = ph + 'px';
+  paper.classList.toggle('spread', cols === 2);
+  paper.classList.toggle('bleed', narrow);
+  const fr = $('#frame');
+  fr.style.left = Math.floor((pw - fw) / 2) + 'px'; fr.style.top = padTop + 'px';
+  fr.style.width = fw + 'px'; fr.style.height = fh + 'px';
+  flow.style.width = fw + 'px'; flow.style.height = fh + 'px';
+  flow.style.columnCount = cols; flow.style.columnGap = gap + 'px';
+  $('#folio').style.bottom = (Math.round(padBot * 0.35) + ins.b * 0.6) + 'px';
+  R.pitch = fw + gap; R.cols = cols;
+}
+
+function renderChunk(ci) {
+  const ch = R.chunks[ci];
+  let h = '';
+  for (const para of ch.paras) {
+    let inner = '';
+    para.segs.forEach((s, i) => { inner += (i ? s.g : '') + `<span class="s" data-p="${s.p}" data-k="${s.k}">${esc(s.t)}</span>`; });
+    h += `<p${para.h ? ' class="hd"' : ''}>${inner}</p>`;
+  }
+  flow.innerHTML = h;
+  R.chunk = ci;
+  measure();
+}
+function measure() {
+  flow.style.transition = 'none'; flow.style.transform = 'none';
+  const fr = flow.getBoundingClientRect(); let prevA = 0;
+  R.segs = $$('.s', flow).map(el => {
+    const rs = el.getClientRects(), p = +el.dataset.p, k = +el.dataset.k;
+    if (!rs.length) return { p, k, a: prevA, b: prevA };
+    const a = Math.floor((rs[0].left - fr.left + 1) / R.pitch);
+    const b = Math.max(a, Math.floor((rs[rs.length - 1].right - fr.left - 1) / R.pitch));
+    prevA = a; return { p, k, a, b };
+  });
+  R.total = R.segs.reduce((mx, s) => Math.max(mx, s.b), 0) + 1;
+}
+function topSeg(screen) {
+  const L = R.segs; let last = -1;
+  for (let i = 0; i < L.length; i++) { if (L[i].a < screen) last = i; else break; }
+  if (last >= 0 && L[last].b >= screen) return L[last];
+  return L[last + 1] || L[last] || null;
+}
+function setScreen(n, anim) {
+  R.screen = clamp(n, 0, R.total - 1);
+  flow.style.transition = anim ? 'transform .34s cubic-bezier(.22,.8,.26,1)' : 'none';
+  flow.style.transform = `translate3d(${-R.screen * R.pitch}px,0,0)`;
+  const t = topSeg(R.screen);
+  if (t) { R.p = t.p; R.k = t.k; }
+  updateChrome(); savePos();
+}
+function findChunk(pos) {
+  const c = R.segChunk.get(pos.p + ':' + pos.k);
+  if (c != null) return c;
+  for (let q = pos.p; q <= R.N; q++) if (R.pageChunk[q] >= 0) return R.pageChunk[q];
+  return R.chunks.length - 1;
+}
+function textGo(pos) {
+  if (!R.chunks || !R.chunks.length) return;
+  const ci = findChunk(pos);
+  if (ci !== R.chunk) renderChunk(ci);
+  let i = R.segs.findIndex(s => s.p === pos.p && s.k === pos.k);
+  if (i < 0) i = R.segs.findIndex(s => s.p >= pos.p);
+  if (i < 0) i = R.segs.length - 1;
+  setScreen(i >= 0 ? R.segs[i].a : 0, false);
+}
+
+/* =====================================================================
+   Режим «Оригінал»
+   ===================================================================== */
+async function renderOrig(p) {
+  const token = ++R.renderToken;
+  let page;
+  try { page = await R.pdf.getPage(p); } catch (e) { return; }
+  if (token !== R.renderToken) return;
+  const narrow = stage.clientWidth < 700;
+  const ins = R.fs ? safeInsets() : { t: 0, b: 0 };
+  const m = R.fs || narrow ? 0 : 14;
+  const aw = stage.clientWidth - 2 * m, ah = stage.clientHeight - 2 * m - ins.t - ins.b;
+  const v1 = page.getViewport({ scale: 1 });
+  const fit = Math.min(aw / v1.width, ah / v1.height);
+  const vp = page.getViewport({ scale: fit });
+  const os = Math.min((window.devicePixelRatio || 1) * 1.3, 3.5);
+  const c = document.createElement('canvas');
+  c.width = Math.floor(vp.width * os); c.height = Math.floor(vp.height * os);
+  if (R.renderTask) { try { R.renderTask.cancel(); } catch (e) {} }
+  const task = page.render({ canvasContext: c.getContext('2d'), viewport: vp, transform: [os, 0, 0, os, 0, 0] });
+  R.renderTask = task;
+  try { await task.promise; } catch (e) { return; }
+  if (token !== R.renderToken) return;
+  paper.style.width = Math.floor(vp.width) + 'px'; paper.style.height = Math.floor(vp.height) + 'px';
+  paper.classList.remove('spread'); paper.classList.toggle('bleed', narrow);
+  $$('#orig canvas').forEach(x => x.remove());
+  $('#orig').prepend(c);
+  const tl = $('#tl'); tl.innerHTML = '';
+  tl.style.setProperty('--scale-factor', fit);
+  try {
+    const tc = await page.getTextContent();
+    if (token !== R.renderToken) return;
+    await pdfjsLib.renderTextLayer({ textContentSource: tc, container: tl, viewport: vp, textDivs: [] }).promise;
+    tl.querySelectorAll('br').forEach(br => { const pr = br.previousSibling; if (pr && pr.nodeType === 1 && !/[\s\-­]$/.test(pr.textContent)) pr.textContent += ' '; });
+  } catch (e) { console.warn(e); }
+}
+
+/* =====================================================================
+   Навігація
+   ===================================================================== */
+function next() {
+  closePop();
+  if (R.mode === 'orig') { if (R.p < R.N) { R.p++; R.k = 0; renderOrig(R.p); updateChrome(); savePos(); } else toast('Це остання сторінка'); return; }
+  if (!R.chunks) return;
+  if (R.screen < R.total - 1) setScreen(R.screen + 1, true);
+  else if (R.chunk < R.chunks.length - 1) { renderChunk(R.chunk + 1); setScreen(0, false); }
+  else toast('Кінець книжки');
+}
+function prev() {
+  closePop();
+  if (R.mode === 'orig') { if (R.p > 1) { R.p--; R.k = 0; renderOrig(R.p); updateChrome(); savePos(); } return; }
+  if (!R.chunks) return;
+  if (R.screen > 0) setScreen(R.screen - 1, true);
+  else if (R.chunk > 0) { renderChunk(R.chunk - 1); setScreen(R.total - 1, false); }
+}
+function goPage(p) {
+  p = clamp(p, 1, R.N);
+  if (R.mode === 'orig') { R.p = p; R.k = 0; renderOrig(p); updateChrome(); savePos(); }
+  else if (R.chunks) textGo({ p, k: 0 });
+  else { R.p = p; R.k = 0; updateChrome(); }
+}
+function goPos(pos) {
+  if (R.mode === 'orig') goPage(pos.p);
+  else if (R.chunks) textGo(pos);
+}
+function currentPos() {
+  if (R.mode === 'text' && R.chunks && R.segs.length) { const t = topSeg(R.screen); if (t) return { p: t.p, k: t.k }; }
+  return { p: R.p, k: R.mode === 'text' ? R.k : 0 };
+}
+let saveT;
+function savePos() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => { if (!R.book) return; R.book.last = currentPos(); R.book.lastAt = Date.now(); R.book.mode = R.mode; DB.put('books', R.book); }, 500);
+}
+function updateChrome() {
+  if (!R.book) return;
+  const lab = labelOf(R.book, R.p);
+  if (document.activeElement !== $('#pgIn')) $('#pgIn').value = lab;
+  $('#pgOf').textContent = 'з ' + labelOf(R.book, R.N);
+  $('#pgRange').value = R.p;
+  $('#folio').textContent = lab;
+  const pos = currentPos();
+  const on = R.marks.some(m => m.p === pos.p && (R.mode === 'orig' || m.k === pos.k));
+  setIcon($('#btnMark'), on ? 'bookmarkOn' : 'bookmark');
+  $('#btnMark').classList.toggle('on', on);
+}
+function applyMode() {
+  const r = $('#reader');
+  r.classList.toggle('r-text', R.mode === 'text');
+  r.classList.toggle('r-orig', R.mode === 'orig');
+  document.body.classList.toggle('r-orig-mode', R.mode === 'orig');
+  $$('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === R.mode));
+}
+async function setMode(m, silent) {
+  if (m === R.mode && !silent) return;
+  if (m === 'text' && R.textReady && R.noText) { toast('У цьому PDF немає тексту (скан) — вигляд «Текст» недоступний', 4000); return; }
+  const pos = currentPos();
+  R.mode = m; applyMode(); closePop();
+  if (m === 'orig') { hideBusy(); R.p = pos.p; R.k = 0; await renderOrig(R.p); }
+  else {
+    if (!R.textReady) { showBusy('Готую книжку до читання (лише першого разу)…', 0, true); R.k = 0; }
+    else { hideBusy(); layoutText(); R.chunk = -1; textGo({ p: pos.p, k: pos.k }); }
+  }
+  updateChrome(); savePos();
+}
+function relayout() {
+  if (!R.book || $('#reader').hidden) return;
+  if (R.mode === 'text') {
+    if (!R.chunks) return;
+    const pos = currentPos(); layoutText(); R.chunk = -1; textGo(pos);
+  } else renderOrig(R.p);
+}
+const relayoutSoon = debounce(relayout, 180);
+new ResizeObserver(relayoutSoon).observe(stage);
+document.fonts && document.fonts.addEventListener('loadingdone', relayoutSoon);
+
+function changeSize(d) {
+  S.size = clamp(S.size + d, 12, 48); saveS(); applyLook();
+  $('#sizeVal').textContent = S.size;
+  if (R.mode === 'orig') { toast('Розмір шрифту змінюється у вигляді «Текст» — перемикаю'); setMode('text'); return; }
+  relayout();
+}
+
+/* ---- кнопки ---- */
+$('#btnBack').onclick = closeBook;
+$('#btnPrev').onclick = prev;
+$('#btnNext').onclick = next;
+$$('#modeSeg button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+$('#pgIn').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const p = pageFromLabel(R.book, e.target.value);
+  if (p == null) { toast('Введіть номер сторінки'); return; }
+  e.target.blur(); goPage(p);
+});
+$('#pgIn').addEventListener('focus', e => e.target.select());
+$('#pgIn').addEventListener('blur', updateChrome);
+$('#pgRange').addEventListener('input', e => { $('#pgIn').value = labelOf(R.book, +e.target.value); });
+$('#pgRange').addEventListener('change', e => goPage(+e.target.value));
+
+/* ---- дотики, свайпи, клавіатура ---- */
+let tStart = null, tapT = null, swipedAt = 0, wheelAt = 0, busyAtDown = false;
+const hasSel = () => { const s = getSelection(); return s && !s.isCollapsed && s.toString().trim().length > 0; };
+stage.addEventListener('touchstart', e => {
+  busyAtDown = hasSel() || !$('#pop').hidden;
+  if (e.touches.length !== 1 || e.target.closest('.nostage')) { tStart = null; return; }
+  const t = e.touches[0]; tStart = { x: t.clientX, y: t.clientY, t: Date.now() };
+}, { passive: true });
+stage.addEventListener('touchend', e => {
+  if (!tStart) return;
+  const t = e.changedTouches[0], dx = t.clientX - tStart.x, dy = t.clientY - tStart.y, dt = Date.now() - tStart.t; tStart = null;
+  if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4 && dt < 800 && !hasSel()) { swipedAt = Date.now(); dx < 0 ? next() : prev(); }
+}, { passive: true });
+stage.addEventListener('mousedown', () => { busyAtDown = hasSel() || !$('#pop').hidden; });
+stage.addEventListener('click', e => {
+  if (e.target.closest('.nostage')) return;
+  if (Date.now() - swipedAt < 450) return;
+  if (busyAtDown) { busyAtDown = false; if (!$('#pop').hidden && !hasSel()) closePop(); return; }
+  clearTimeout(tapT);
+  if (e.detail > 1) return;
+  const x = e.clientX;
+  tapT = setTimeout(() => { if (!hasSel()) onTap(x); }, 260);
+});
+stage.addEventListener('dblclick', () => clearTimeout(tapT));
+function onTap(x) {
+  if (R.locked) return;
+  const r = stage.getBoundingClientRect(), f = (x - r.left) / r.width;
+  if (f < 0.3) prev();
+  else if (f > 0.7) next();
+  else if (R.fs) exitFs();
+}
+stage.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (Math.abs(e.deltaY) < 4 && Math.abs(e.deltaX) < 4) return;
+  const now = Date.now(); if (now - wheelAt < 380) return; wheelAt = now;
+  (e.deltaY || e.deltaX) > 0 ? next() : prev();
+}, { passive: false });
+document.addEventListener('keydown', e => {
+  if ($('#reader').hidden) { if (e.key === 'Escape') closeSheets(); return; }
+  if (e.target.matches('input,textarea,select,[contenteditable]')) return;
+  const k = e.key;
+  if (k === 'Escape') { if (!$('#pop').hidden) closePop(); else if (openSheet) closeSheets(); else if (R.fs && !R.locked) exitFs(); return; }
+  if (openSheet) return;
+  if (['ArrowRight', 'PageDown', ' ', 'ArrowDown'].includes(k)) { e.preventDefault(); next(); }
+  else if (['ArrowLeft', 'PageUp', 'ArrowUp'].includes(k)) { e.preventDefault(); prev(); }
+  else if (k === 'f' || k === 'F') R.fs ? (!R.locked && exitFs()) : enterFs();
+});
+
+/* =====================================================================
+   Повноекранний режим і блокування
+   ===================================================================== */
+async function enterFs() {
+  closePop(); closeSheets();
+  R.fs = true; R.locked = false;
+  document.body.classList.add('fs'); document.body.classList.remove('locked');
+  setIcon($('#lockBtn'), 'unlock');
+  try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
+  relayoutSoon();
+  toast('Дотик до центру — вихід. Замок — блокування екрана.', 3000);
+}
+function exitFs() {
+  R.fs = false; R.locked = false;
+  document.body.classList.remove('fs', 'locked');
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  relayoutSoon();
+}
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && R.fs) exitFs(); relayoutSoon(); });
+$('#btnFs').onclick = enterFs;
+$('#lockBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  R.locked = !R.locked;
+  document.body.classList.toggle('locked', R.locked);
+  setIcon($('#lockBtn'), R.locked ? 'lock' : 'unlock');
+  toast(R.locked ? 'Екран заблоковано. Гортайте свайпом.' : 'Розблоковано. Дотик до центру сторінки — вихід.', 2800);
+});
+
+/* =====================================================================
+   Аналіз виділеного: слова з конекторами та сталі вирази
+   ===================================================================== */
+const GOV_FALLBACK = `acabar de|acabar con|acordarse de|darse cuenta de|dejar de|depender de|empezar a|pensar en|soñar con|tener que|tratar de|volver a`;
+const PHRASE_FALLBACK = `a pesar de|sin embargo|en lugar de|a través de|de repente|a menudo|a veces|hay que`;
+const splitList = s => String(s || '').split(/[|\n]/).map(x => x.trim().toLowerCase().replace(/\s+/g, ' ')).filter(Boolean);
+// неправильні основи дієслів (з префіксами теж: detener, componer, convenir, traducir…)
+const STRONG = {
+  tener: 'tien teng tuv tendr', poner: 'pong pus pondr puest', venir: 'vien veng vin vendr', hacer: 'hag hic hiz har hech',
+  facer: 'fag fic fiz far fech', decir: 'dic dig dij dir dich', traer: 'traig traj tray', caer: 'caig cay', salir: 'salg saldr',
+  valer: 'valg valdr', saber: 'sup sep sabr', querer: 'quier quis querr', poder: 'pued pud podr', estar: 'estuv', andar: 'anduv',
+  haber: 'hub habr', ducir: 'duzc duj', oír: 'oig oy', morir: 'muer mur muert', dormir: 'duerm durm', jugar: 'jueg jugu',
+  oler: 'huel', errar: 'yerr', adquirir: 'adquier', volver: 'vuelv vuelt', solver: 'suelv suelt', romper: 'rot', escribir: 'escrit', abrir: 'abiert', cubrir: 'cubiert',
+};
+const FORMS = {
+  ir: 'voy vas va vamos vais van iba ibas íbamos ibais iban fui fuiste fue fuimos fuisteis fueron iré irás irá iremos iréis irán iría irías iríamos iríais irían vaya vayas vayamos vayáis vayan fuera fueras fuéramos fuerais fueran yendo ido ir irse yéndose idos',
+  dar: 'doy das da damos dais dan daba dabas dábamos dabais daban di diste dio dimos disteis dieron daré darás dará daremos daréis darán daría darías daríamos daríais darían dé des demos deis den diera dieras diéramos dierais dieran dando dado dar darse dándose darme darte darnos dándome dárselo',
+  ser: 'soy eres es somos sois son era eras éramos erais eran fui fuiste fue fuimos fueron seré será serán sería serían sea seas sean fuera fueran siendo sido ser',
+  ver: 'veo ves ve vemos veis ven veía veías veíamos veían vi viste vio vimos vieron veré verá verán vería verían vea veas vean viera vieran viendo visto ver verse',
+  reír: 'río ríes ríe reímos reís ríen reía reías reíamos reían reí reíste rio rió rieron reiré reirá reiría ría rían riera rieran riendo riéndose reído reír reírse reírme reírte',
+  huir: 'huyo huyes huye huimos huyen huía huían huí huyó huyeron huiré huirá huya huyan huyendo huido huir',
+  haber: 'he has ha hay hemos habéis han había habías habíamos habían hubo habrá habría haya hayan hubiera hubieran habiendo haber',
+};
+function verbStems(lemma) {
+  const end = lemma.slice(-2).replace('í', 'i'); const st = lemma.slice(0, -2);
+  const out = new Set([st]);
+  for (const k in STRONG) if (lemma.endsWith(k)) { const pre = lemma.slice(0, -k.length); STRONG[k].split(' ').forEach(s => out.add(pre + s)); }
+  const m = st.match(/^(.*?)([eo])([^aeiouáéíóú]*)$/);
+  if (m) {
+    const [, pre, v, cons] = m;
+    if (v === 'e') { out.add(pre + 'ie' + cons); if (end === 'ir') out.add(pre + 'i' + cons); }
+    if (v === 'o') { out.add(pre + 'ue' + cons); if (end === 'ir') out.add(pre + 'u' + cons); }
+  }
+  const add = f => [...out].forEach(s => { const r = f(s); if (r && r !== s) out.add(r); });
+  if (end === 'ar') {
+    add(s => s.replace(/c$/, 'qu')); add(s => s.replace(/g$/, 'gu')); add(s => s.replace(/z$/, 'c')); add(s => s.replace(/gu$/, 'gü'));
+    add(s => s.replace(/i$/, 'í')); add(s => s.replace(/u$/, 'ú'));
+  } else {
+    if (/[aeiou]c$/.test(st)) add(s => s.replace(/c$/, 'zc'));
+    if (/[^aeiou]c$/.test(st)) add(s => s.replace(/c$/, 'z'));
+    add(s => s.replace(/g$/, 'j')); add(s => s.replace(/gu$/, 'g'));
+    if (end === 'ir' && /u$/.test(st)) add(s => s + 'y');
+  }
+  return out;
+}
+let GOV = [], PHRASES = [];
+function buildLexicon() {
+  const gov = splitList(window.GOV_SRC || GOV_FALLBACK), phr = splitList(window.PHRASE_SRC || PHRASE_FALLBACK);
+  GOV = [...new Set(gov)].map(base => {
+    const parts = base.split(' '), head = parts[0], tail = parts.slice(1);
+    const lemma = /(ar|er|ir|ír)se$/.test(head) ? head.slice(0, -2) : head;
+    const isVerb = /(ar|er|ir|ír)$/.test(lemma) && tail.length > 0;
+    let stems;
+    if (isVerb) stems = verbStems(lemma);
+    else {
+      stems = new Set([/[oae]$/.test(lemma) ? lemma.slice(0, -1) : lemma, lemma]);
+      if (/z$/.test(lemma)) stems.add(lemma.slice(0, -1) + 'c');
+    }
+    const forms = new Set((FORMS[lemma] || '').split(' ').filter(Boolean)); forms.add(head); forms.add(lemma);
+    return { base, tail, isVerb, stems: [...stems].filter(s => s.length >= 3), forms };
+  });
+  PHRASES = [...new Set(phr)].map(s => s.split(' ')).filter(a => a.length > 1);
+}
+function matchHead(w, e) {
+  if (e.forms.has(w)) return true;
+  for (const st of e.stems) {
+    if (!w.startsWith(st)) continue;
+    const rest = w.slice(st.length);
+    if (e.isVerb) { if (rest.length >= 1 && rest.length <= 7 && /^[aeiouáéíóú]/.test(rest)) return true; }
+    else if (['', 'o', 'a', 'os', 'as', 'e', 'es', 's'].includes(rest)) return true;
+  }
+  return false;
+}
+const prepEq = (t, want) => t === want || (want === 'a' && t === 'al') || (want === 'de' && t === 'del');
+function tokens(s) {
+  const out = [], re = /[\p{L}\p{M}]+/gu; let m;
+  while ((m = re.exec(s))) out.push({ w: m[0], lw: m[0].toLowerCase(), a: m.index, b: m.index + m[0].length });
+  return out;
+}
+function analyze(full, start, end) {
+  const T = tokens(full);
+  const contig = (i, j) => /^[\s­​]*$/.test(full.slice(T[i].b, T[j].a));
+  const i0 = T.findIndex(t => t.b > start);
+  let i1 = -1; for (let i = 0; i < T.length; i++) if (T[i].a < end) i1 = i;
+  if (i0 < 0 || i1 < i0) return null;
+  const cands = [];
+  if (i1 - i0 <= 5) {
+    for (const ph of PHRASES) {
+      const n = ph.length;
+      for (let s = Math.max(0, i0 - n + 1); s <= i1 && s + n <= T.length; s++) {
+        let ok = true;
+        for (let j = 0; j < n; j++) if (T[s + j].lw !== ph[j] || (j && !contig(s + j - 1, s + j))) { ok = false; break; }
+        if (ok) cands.push({ a: s, b: s + n - 1, base: ph.join(' '), kind: 'phrase', isVerb: false });
+      }
+    }
+    for (let h = Math.max(0, i0 - 3); h <= i1; h++) {
+      const w = T[h].lw;
+      for (const e of GOV) {
+        const e2 = h + e.tail.length;
+        if (e2 >= T.length || e2 < i0) continue;
+        if (!prepEq(T[h + 1].lw, e.tail[0])) continue;
+        if (!matchHead(w, e)) continue;
+        let ok = true;
+        for (let j = 0; j < e.tail.length; j++) if (!prepEq(T[h + 1 + j].lw, e.tail[j]) || !contig(h + j, h + 1 + j)) { ok = false; break; }
+        if (ok) cands.push({ a: h, b: e2, base: e.base, kind: 'conn', isVerb: e.isVerb });
+      }
+    }
+  }
+  // Оцінка: довший збіг краще; поворотне дієслово (acordarse) — коли поруч є me/te/se/nos/os
+  const REFL = /^(me|te|se|nos|os)$/;
+  const score = c => {
+    let s = (c.b - c.a) * 10 + (c.kind === 'conn' ? 1 : 0);
+    if (c.kind === 'conn' && c.isVerb) {
+      const refl = /^\S+se\b/.test(c.base);
+      const hasPron = (c.a > 0 && REFL.test(T[c.a - 1].lw)) || /(me|te|se|nos|os)$/.test(T[c.a].lw) && /(ar|er|ir|ndo)(me|te|se|nos|os)$/.test(T[c.a].lw);
+      s += refl === hasPron ? 3 : 0;
+    } else if (c.kind === 'conn') s += 2; // прикметник/іменник збігся точно (harta de → harto de)
+    return s;
+  };
+  let best = null;
+  for (const c of cands) if (!best || score(c) > score(best)) best = c;
+  let A = i0, B = i1, base = null, kind = i0 === i1 ? 'word' : 'multi', isVerb = false;
+  if (best) {
+    A = Math.min(i0, best.a); B = Math.max(i1, best.b);
+    if (A === best.a && B === best.b) { base = best.base; kind = best.kind; isVerb = best.isVerb; } else kind = 'multi';
+  }
+  let surface = full.slice(T[A].a, T[B].b).replace(/[\s­​]+/g, ' ').trim();
+  if (/^\p{Lu}\p{Ll}*(\s|$)/u.test(surface)) surface = surface[0].toLowerCase() + surface.slice(1);
+  return { surface, kind, baseForm: base, isVerb };
+}
+function getContext(range) {
+  const node = range.startContainer, el = node.nodeType === 1 ? node : node.parentElement;
+  const cont = el && el.closest('#flow p, .textLayer');
+  const sel = range.toString();
+  if (!cont) return { full: sel, start: 0, end: sel.length };
+  const pre = document.createRange(); pre.selectNodeContents(cont);
+  try { pre.setEnd(range.startContainer, range.startOffset); } catch (e) { return { full: sel, start: 0, end: sel.length }; }
+  const full = cont.textContent, start = pre.toString().length;
+  return { full, start, end: Math.min(full.length, start + sel.length) };
+}
+function sentenceAt(full, pos) {
+  let a = pos; while (a > 0 && !/[.!?…]/.test(full[a - 1])) a--;
+  let b = pos; while (b < full.length && !/[.!?…]/.test(full[b])) b++;
+  while (b < full.length && /[.!?…»"”]/.test(full[b])) b++;
+  return full.slice(a, b).replace(/[\s​]+/g, ' ').trim().slice(0, 500);
+}
+
+/* =====================================================================
+   Переклад: вбудований словник конекторів → збережені переклади →
+   Google (з Інтернетом) → офлайн-перекладач (без Інтернету)
+   ===================================================================== */
+let trReadyCache = false, trDownloading = false;
+async function trReady() {
+  if (trReadyCache) return true;
+  if (!window.OfflineTR) return false;
+  trReadyCache = await window.OfflineTR.isReady();
+  return trReadyCache;
+}
+async function fetchJSON(url, ms = 6000) {
+  const ac = new AbortController(); const t = setTimeout(() => ac.abort(), ms);
+  try { const r = await fetch(url, { signal: ac.signal }); if (!r.ok) throw new Error(r.status); return await r.json(); }
+  finally { clearTimeout(t); }
+}
+async function googleTr(q) {
+  const j = await fetchJSON('https://translate.googleapis.com/translate_a/single?client=gtx&sl=es&tl=uk&hl=uk&dt=t&dt=bd&dj=1&q=' + encodeURIComponent(q));
+  const main = (j.sentences || []).map(s => s.trans || '').join('').trim();
+  if (!main) throw new Error('empty');
+  const alts = (j.dict || []).map(d => ({ pos: d.pos, terms: (d.terms || []).slice(0, 6) })).filter(d => d.terms.length);
+  const lemma = (j.dict || []).map(d => d.base_form).find(Boolean) || null;
+  return { main, alts, lemma };
+}
+async function translateUnit(an) {
+  const q = an.baseForm || an.surface, key = q.toLowerCase();
+  if (an.baseForm && window.CONN_UK && window.CONN_UK[an.baseForm]) return { main: window.CONN_UK[an.baseForm], alts: [], src: 'built' };
+  const c = await DB.get('tcache', key).catch(() => null);
+  if (c) return { ...c, src: c.src || 'saved' };
+  if (navigator.onLine !== false) {
+    try { const r = await googleTr(q); r.src = 'online'; DB.put('tcache', r, key).catch(() => {}); return r; } catch (e) {}
+  }
+  if (await trReady()) {
+    const r = await window.OfflineTR.translate(q, { verb: an.kind === 'conn' && an.isVerb });
+    return { main: r.text, alts: [], lemma: null, src: 'offline' };
+  }
+  throw new Error(navigator.onLine === false ? 'nooffline' : 'fail');
+}
+function speak(text) {
+  try {
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'es-ES'; u.rate = 0.9;
+    const vs = speechSynthesis.getVoices();
+    const v = vs.find(v => /^es(-|_)ES/i.test(v.lang)) || vs.find(v => /^es/i.test(v.lang));
+    if (v) u.voice = v;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  } catch (e) { toast('Вимова недоступна'); }
+}
+
+/* ---- офлайн-перекладач: завантаження ---- */
+async function refreshTrUI() {
+  const ready = await trReady();
+  if (window.OfflineTR && !$('.trSize').dataset.done) {
+    try { const s = await window.OfflineTR.totalSize(); $$('.trSize').forEach(e => { e.textContent = '≈ ' + Math.round(s / 1048576) + ' МБ'; e.dataset.done = 1; }); } catch (e) {}
+  }
+  $('#trStatus').innerHTML = !window.OfflineTR ? 'Офлайн-перекладач недоступний у цьому браузері.'
+    : ready ? '<span class="ok">✓ Завантажено.</span> Переклад працює й без Інтернету.'
+    : trDownloading ? 'Завантажую…' : 'Ще не завантажено. Без нього переклад працює лише з Інтернетом.';
+  $('#trDlBtn').hidden = ready || trDownloading || !window.OfflineTR;
+  if (!$('#library').hidden) updateBanners($$('.card').length);
+}
+async function downloadTr() {
+  if (trDownloading || !window.OfflineTR) return;
+  if (navigator.onLine === false) { toast('Потрібен Інтернет для завантаження'); return; }
+  trDownloading = true; refreshTrUI();
+  const bars = [$('#trBar'), $('#trBanner .bar')];
+  bars.forEach(b => { b.hidden = false; b.firstElementChild.style.width = '0%'; });
+  $$('.trDl').forEach(b => b.disabled = true);
+  try {
+    await window.OfflineTR.download(p => bars.forEach(b => b.firstElementChild.style.width = Math.round(p * 100) + '%'));
+    trReadyCache = true; toast('Офлайн-перекладач готовий ✓');
+  } catch (e) { console.error(e); toast('Не вдалося завантажити. Спробуйте ще раз (краще через Wi-Fi).', 4000); }
+  trDownloading = false;
+  bars.forEach(b => b.hidden = true); $$('.trDl').forEach(b => b.disabled = false);
+  refreshTrUI();
+}
+$$('.trDl').forEach(b => b.onclick = downloadTr);
+window.addEventListener('offlinetr-ready', refreshTrUI);
+
+/* =====================================================================
+   Спливне вікно перекладу
+   ===================================================================== */
+const POP = { id: 0, rect: null, an: null, tr: null, wordId: null, sentence: '', selText: '' };
+let selT;
+document.addEventListener('selectionchange', () => { clearTimeout(selT); selT = setTimeout(checkSel, 550); });
+stage.addEventListener('mouseup', () => setTimeout(checkSel, 20));
+function checkSel() {
+  if ($('#reader').hidden) return;
+  const sel = getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return;
+  const txt = sel.toString().replace(/\s+/g, ' ').trim();
+  if (!txt || txt.length > 400 || !/\p{L}/u.test(txt)) return;
+  const range = sel.getRangeAt(0);
+  if (!stage.contains(range.commonAncestorContainer)) return;
+  if (txt === POP.selText && !$('#pop').hidden) return;
+  POP.selText = txt;
+  handleSelection(range, txt);
+}
+const SRC_LABEL = { built: 'вбудований словник', saved: 'збережений переклад', online: 'Google', offline: 'офлайн-перекладач' };
+async function handleSelection(range, txt) {
+  const id = ++POP.id;
+  const ctx = getContext(range);
+  const an = analyze(ctx.full, ctx.start, ctx.end) || { surface: txt.replace(/^[^\p{L}\d]+|[^\p{L}\d]+$/gu, ''), baseForm: null, kind: 'multi' };
+  POP.an = an; POP.tr = null; POP.wordId = null; POP.rect = range.getBoundingClientRect();
+  POP.sentence = sentenceAt(ctx.full, ctx.start);
+  $('#popWord').textContent = an.surface;
+  let baseHtml = '';
+  if (an.kind === 'conn') baseHtml = `${an.baseForm !== an.surface ? `→ <b>${esc(an.baseForm)}</b>` : ''}<span class="tag">з конектором</span>`;
+  else if (an.kind === 'phrase') baseHtml = `${an.baseForm !== an.surface ? `→ <b>${esc(an.baseForm)}</b>` : ''}<span class="tag">сталий вираз</span>`;
+  $('#popBase').innerHTML = baseHtml;
+  $('#popTr').innerHTML = '<span class="dots">Перекладаю</span>';
+  $('#popAlts').innerHTML = ''; $('#popSrc').textContent = '';
+  $('#popSave').hidden = true;
+  $('#pop').hidden = false; placePop();
+  const existing = findWord(an);
+  let tr;
+  if (existing) tr = { main: existing.uk, alts: [], lemma: existing.lemma, src: 'saved' };
+  else {
+    try { tr = await translateUnit(an); } catch (e) {
+      if (id !== POP.id) return;
+      $('#popTr').textContent = e.message === 'nooffline'
+        ? 'Немає Інтернету, а офлайн-перекладач ще не завантажено (Aa → Офлайн-перекладач).'
+        : 'Не вдалося перекласти. Спробуйте ще раз.';
+      placePop(); return;
+    }
+  }
+  if (id !== POP.id) return;
+  POP.tr = tr;
+  $('#popTr').textContent = tr.main;
+  $('#popSrc').textContent = SRC_LABEL[tr.src] || '';
+  if (an.kind === 'word' && tr.lemma && tr.lemma.toLowerCase() !== an.surface.toLowerCase())
+    $('#popBase').innerHTML = `початкова форма: <b>${esc(tr.lemma)}</b>`;
+  $('#popAlts').innerHTML = (tr.alts || []).slice(0, 3).map(d => `${esc(d.pos || '')}: <i>${esc(d.terms.join(', '))}</i>`).join('<br>');
+  if (existing) { POP.wordId = existing.id; setSaveBtn('saved-old'); }
+  else if (S.autoAdd) { POP.wordId = await addWord(an, tr); if (id === POP.id) setSaveBtn('saved'); }
+  else setSaveBtn('add');
+  placePop();
+}
+function setSaveBtn(state) {
+  const b = $('#popSave'); b.hidden = false; b.dataset.state = state;
+  b.textContent = state === 'add' ? '+ У словник' : state === 'saved-old' ? '✓ Вже у словнику' : '✓ У словнику · прибрати';
+}
+$('#popSave').onclick = async () => {
+  const st = $('#popSave').dataset.state;
+  if (st === 'add' && POP.tr) { POP.wordId = await addWord(POP.an, POP.tr); setSaveBtn('saved'); }
+  else if (st === 'saved' && POP.wordId != null) { await DB.del('words', POP.wordId); W = W.filter(w => w.id !== POP.wordId); POP.wordId = null; setSaveBtn('add'); }
+  else if (st === 'saved-old') openDict();
+};
+$('#popSay').onclick = () => POP.an && speak(POP.an.baseForm || POP.an.surface);
+$('#popX').onclick = closePop;
+function placePop() {
+  const pop = $('#pop'), r = POP.rect; if (!r || isNarrow()) { pop.style.left = ''; pop.style.top = ''; return; }
+  const pw = pop.offsetWidth, ph = pop.offsetHeight, vw = innerWidth, vh = innerHeight;
+  const left = clamp(r.left + r.width / 2 - pw / 2, 8, vw - pw - 8);
+  let top = r.bottom + 12;
+  if (top + ph > vh - 8) top = r.top - ph - 12;
+  if (top < 8) top = clamp(vh - ph - 8, 8, vh);
+  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+}
+function closePop() { $('#pop').hidden = true; POP.id++; POP.selText = ''; }
+document.addEventListener('pointerdown', e => {
+  if ($('#pop').hidden) return;
+  if (e.target.closest('#pop') || stage.contains(e.target)) return;
+  closePop();
+});
+
+/* =====================================================================
+   Словник
+   ===================================================================== */
+const wordKey = w => (w.base || w.es || '').toLowerCase().trim();
+function findWord(an) { const k = (an.baseForm || an.surface).toLowerCase().trim(); return W.find(w => wordKey(w) === k); }
+async function addWord(an, tr) {
+  const ex = findWord(an); if (ex) return ex.id;
+  const alts = (tr.alts || []).slice(0, 3).map(d => `${d.pos ? d.pos + ': ' : ''}${d.terms.join(', ')}`).join('; ');
+  const entry = {
+    es: an.surface, base: an.baseForm || null, lemma: tr.lemma || null, kind: an.kind, uk: tr.main, alts,
+    bookId: R.book && R.book.id, bookTitle: R.book && R.book.title, page: R.book ? labelOf(R.book, R.p) : '', pdfPage: R.p,
+    ctx: POP.sentence, ts: Date.now(),
+  };
+  const id = await DB.put('words', entry); entry.id = id; W.push(entry); markDirty();
+  return id;
+}
+async function openDict() {
+  W = await DB.all('words');
+  const inBook = !!R.book && !$('#reader').hidden;
+  $('#dictFilter').hidden = !inBook; if (!inBook) $('#dictFilter').value = 'all';
+  renderDict(); showSheet('dictSheet');
+}
+function dictList() {
+  const q = $('#dictSearch').value.trim().toLowerCase(), f = $('#dictFilter').value;
+  let list = [...W].sort((a, b) => a.ts - b.ts);
+  if (f === 'book' && R.book) list = list.filter(w => w.bookId === R.book.id);
+  if (q) list = list.filter(w => [w.es, w.base, w.uk, w.lemma].some(x => x && x.toLowerCase().includes(q)));
+  return list;
+}
+function renderDict() {
+  const list = dictList();
+  $('#dictCount').textContent = `· ${list.length}`;
+  $('#dictBody').innerHTML = list.map((w, i) => {
+    const head = w.base || w.es, sub = [];
+    if (w.base && w.base !== w.es) sub.push(`у тексті: ${esc(w.es)}`);
+    else if (w.lemma && w.lemma.toLowerCase() !== w.es.toLowerCase()) sub.push(`поч. форма: ${esc(w.lemma)}`);
+    if (w.kind === 'conn') sub.push('з конектором'); else if (w.kind === 'phrase') sub.push('сталий вираз');
+    if (w.bookTitle) sub.push(`${esc(w.bookTitle)}${w.page ? ', стор. ' + esc(w.page) : ''}`);
+    return `<li data-id="${w.id}"><span class="n">${i + 1}</span>
+      <div class="c"><div class="es">${esc(head)}</div><div class="uk" contenteditable="true" spellcheck="false">${esc(w.uk)}</div><div class="sm">${sub.join(' · ')}</div></div>
+      <div class="a"><button class="ib sm" data-say title="Вимова">${icon('speak')}</button><button class="ib sm" data-rm title="Видалити">${icon('trash')}</button></div></li>`;
+  }).join('') || `<li class="hint" style="padding:30px 0;justify-content:center;text-align:center">Словник порожній. Виділіть слово в книжці — воно з’явиться тут разом із перекладом.</li>`;
+}
+$('#dictSearch').addEventListener('input', renderDict);
+$('#dictFilter').addEventListener('change', renderDict);
+$('#dictBody').addEventListener('click', async e => {
+  const li = e.target.closest('li[data-id]'); if (!li) return;
+  const w = W.find(x => x.id === +li.dataset.id); if (!w) return;
+  if (e.target.closest('[data-say]')) speak(w.base || w.es);
+  if (e.target.closest('[data-rm]')) { await DB.del('words', w.id); W = W.filter(x => x.id !== w.id); markDirty(); renderDict(); }
+});
+$('#dictBody').addEventListener('focusout', async e => {
+  const el = e.target.closest('.uk'); if (!el) return;
+  const w = W.find(x => x.id === +el.closest('li').dataset.id); if (!w) return;
+  const v = el.textContent.trim(); if (v && v !== w.uk) { w.uk = v; await DB.put('words', w); markDirty(); toast('Переклад збережено', 1200); }
+});
+$('#dictBody').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('.uk')) { e.preventDefault(); e.target.blur(); } });
+$('#dictExport').onclick = async () => {
+  const list = dictList();
+  const rows = [['№', 'Іспанською', 'Початкова форма', 'Українською', 'Варіанти', 'Книжка', 'Сторінка', 'Речення'],
+    ...list.map((w, i) => [i + 1, w.es, w.base || w.lemma || '', w.uk, w.alts || '', w.bookTitle || '', w.page || '', w.ctx || ''])];
+  const csv = '﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n');
+  await shareFile(new File([csv], 'slovnyk.csv', { type: 'text/csv' }));
+};
+$('#btnDict').onclick = openDict;
+
+/* =====================================================================
+   Закладки
+   ===================================================================== */
+function snippetAt(pos) {
+  if (R.mode === 'text') {
+    const el = flow.querySelector(`.s[data-p="${pos.p}"][data-k="${pos.k}"]`);
+    if (el) return el.textContent.replace(/​/g, '').trim().slice(0, 140);
+  }
+  const pg = R.raw && R.raw[pos.p - 1];
+  return pg && pg[0] ? pg[0].t.slice(0, 140) : '';
+}
+async function toggleMark() {
+  if (!R.book) return;
+  const pos = currentPos();
+  const ex = R.marks.find(m => m.p === pos.p && (R.mode === 'orig' || m.k === pos.k));
+  if (ex) { await DB.del('marks', ex.id); R.marks = R.marks.filter(m => m !== ex); toast('Закладку прибрано'); }
+  else {
+    const m = { bookId: R.book.id, p: pos.p, k: pos.k, snippet: snippetAt(pos), ts: Date.now() };
+    m.id = await DB.put('marks', m); R.marks.push(m);
+    toast(`Закладка: стор. ${labelOf(R.book, pos.p)}`);
+  }
+  markDirty(); updateChrome(); if (openSheet === 'marksSheet') renderMarks();
+}
+function renderMarks() {
+  const list = [...R.marks].sort((a, b) => a.p - b.p || a.k - b.k);
+  $('#marksList').innerHTML = list.map(m => `<div class="mk" data-id="${m.id}">
+      <div class="pgn">стор. ${esc(labelOf(R.book, m.p))}</div>
+      <div class="sn">${esc(m.snippet || '…')}<div class="dt">${new Date(m.ts).toLocaleString('uk-UA', { dateStyle: 'medium', timeStyle: 'short' })}</div></div>
+      <button class="ib sm" data-rm title="Видалити">${icon('trash')}</button></div>`).join('')
+    || '<p class="hint">Закладок ще немає. Натисніть «+ Додати тут» або значок закладки вгорі.<br><br>Місце, де ви зупинились, запам’ятовується автоматично.</p>';
+}
+$('#marksList').addEventListener('click', async e => {
+  const row = e.target.closest('.mk'); if (!row) return;
+  const m = R.marks.find(x => x.id === +row.dataset.id); if (!m) return;
+  if (e.target.closest('[data-rm]')) { await DB.del('marks', m.id); R.marks = R.marks.filter(x => x !== m); markDirty(); renderMarks(); updateChrome(); return; }
+  closeSheets(); goPos({ p: m.p, k: m.k });
+});
+$('#btnMark').onclick = toggleMark;
+$('#btnMarks').onclick = () => { renderMarks(); showSheet('marksSheet'); };
+$('#marksAdd').onclick = () => { const pos = currentPos(); if (!R.marks.some(m => m.p === pos.p && m.k === pos.k)) toggleMark(); };
+
+/* =====================================================================
+   Резервна копія в iCloud (через «Зберегти у Файли»)
+   ===================================================================== */
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  for (const f of files) {
+    const nm = enc.encode(f.name), crc = crc32(f.data), n = f.data.length;
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
+    lh.setUint16(12, 0x21, true); lh.setUint32(14, crc, true); lh.setUint32(18, n, true); lh.setUint32(22, n, true); lh.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(lh.buffer), nm, f.data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(14, 0x21, true); ch.setUint32(16, crc, true); ch.setUint32(20, n, true); ch.setUint32(24, n, true); ch.setUint16(28, nm.length, true); ch.setUint32(42, off, true);
+    central.push(new Uint8Array(ch.buffer), nm);
+    off += 30 + nm.length + n;
+  }
+  const cd = central.reduce((s, c) => s + c.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cd, true); end.setUint32(16, off, true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: 'application/zip' });
+}
+async function readZip(blob) {
+  const b = new Uint8Array(await blob.arrayBuffer()), dv = new DataView(b.buffer), dec = new TextDecoder();
+  let e = b.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('Це не файл копії');
+  const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true); const out = {};
+  for (let i = 0; i < n; i++) {
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
+    const nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true);
+    const name = dec.decode(b.subarray(p + 46, p + 46 + nl));
+    const start = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true);
+    let data = b.subarray(start, start + csize);
+    if (method === 8) data = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+    out[name] = data; p += 46 + nl + xl + cl;
+  }
+  return out;
+}
+async function shareFile(file) {
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: file.name }); return true; }
+  } catch (e) { if (e.name === 'AbortError') return false; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000); return true;
+}
+let preparedBackup = null;
+function openCloud() {
+  preparedBackup = null; $('#bkShare').hidden = true; $('#bkMake').hidden = false;
+  $('#lastBackup').textContent = S.lastBackup ? 'Остання копія: ' + new Date(S.lastBackup).toLocaleString('uk-UA', { dateStyle: 'long', timeStyle: 'short' }) : 'Резервних копій ще не було.';
+  showSheet('cloudSheet');
+}
+$('#setCloud').onclick = openCloud;
+$('#bkMake').onclick = async () => {
+  const btn = $('#bkMake'); btn.disabled = true; btn.textContent = 'Готую…';
+  try {
+    const enc = new TextEncoder();
+    const books = await DB.all('books'), words = await DB.all('words'), marks = await DB.all('marks');
+    const files = [{ name: 'data.json', data: enc.encode(JSON.stringify({ app: 'chytalka', v: 1, at: Date.now(), books, words, marks })) }];
+    if ($('#bkBooks').checked) for (const bk of books) {
+      const blob = await DB.get('files', bk.id);
+      if (blob) files.push({ name: `books/${bk.id}.pdf`, data: new Uint8Array(await blob.arrayBuffer()) });
+    }
+    const d = new Date(), name = `chytalka-kopiya-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.zip`;
+    preparedBackup = new File([makeZip(files)], name, { type: 'application/zip' });
+    btn.hidden = true; $('#bkShare').hidden = false;
+    $('#bkShare').textContent = `Зберегти в iCloud… (${(preparedBackup.size / 1048576).toFixed(1)} МБ)`;
+  } catch (e) { console.error(e); toast('Не вдалося підготувати копію'); }
+  btn.disabled = false; btn.textContent = 'Підготувати копію';
+};
+$('#bkShare').onclick = async () => {
+  if (!preparedBackup) return;
+  const ok = await shareFile(preparedBackup);
+  if (ok) { S.lastBackup = Date.now(); saveS(); toast('Копію передано. Виберіть «Зберегти у Файли» → iCloud Drive.', 3500); openCloud(); }
+};
+$('#bkRestore').onclick = () => $('#bkIn').click();
+$('#bkIn').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  toast('Відновлюю…', 60000);
+  try {
+    const z = await readZip(f);
+    const data = JSON.parse(new TextDecoder().decode(z['data.json']));
+    if (data.app !== 'chytalka') throw new Error('bad');
+    let nb = 0, nw = 0;
+    for (const b of data.books || []) {
+      const cur = await DB.get('books', b.id);
+      if (!cur) {
+        const pdf = z[`books/${b.id}.pdf`]; if (!pdf) continue;
+        await DB.put('files', new Blob([pdf], { type: 'application/pdf' }), b.id); await DB.put('books', b); nb++;
+      } else if ((b.lastAt || 0) > (cur.lastAt || 0)) { cur.last = b.last; cur.lastAt = b.lastAt; cur.offset = b.offset; cur.useLabels = b.useLabels; await DB.put('books', cur); }
+    }
+    W = await DB.all('words');
+    for (const w of data.words || []) {
+      if (W.some(x => wordKey(x) === wordKey(w))) continue;
+      const c = { ...w }; delete c.id; c.id = await DB.put('words', c); W.push(c); nw++;
+    }
+    const marks = await DB.all('marks');
+    for (const m of data.marks || []) {
+      if (marks.some(x => x.bookId === m.bookId && x.p === m.p && x.k === m.k)) continue;
+      const c = { ...m }; delete c.id; await DB.put('marks', c);
+    }
+    toast(`Відновлено: книжок ${nb}, слів ${nw}`, 4000);
+    closeSheets(); renderLibrary();
+  } catch (err) { console.error(err); toast('Не вдалося прочитати файл копії', 4000); }
+};
+
+/* =====================================================================
+   Панелі та налаштування
+   ===================================================================== */
+let openSheet = null;
+function showSheet(id) { closeSheets(); closePop(); openSheet = id; $('#' + id).hidden = false; $('#backdrop').hidden = false; }
+function closeSheets() { $$('.sheet').forEach(s => s.hidden = true); $('#backdrop').hidden = true; openSheet = null; }
+$('#backdrop').onclick = closeSheets;
+$$('[data-close]').forEach(b => b.onclick = closeSheets);
+function syncSettingsUI() {
+  $$('#themeSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === S.theme));
+  $$('#spreadSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === S.spread));
+  $$('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === R.mode));
+  $('#fontSel').value = S.font; $('#lhRange').value = S.lh; $('#sizeVal').textContent = S.size;
+  $('#tintChk').checked = S.tint; $('#autoChk').checked = S.autoAdd;
+  if (R.book) { $('#numIn').value = labelOf(R.book, R.p); $('#lblWrap').hidden = !R.book.labels; $('#lblChk').checked = !!R.book.useLabels; }
+  refreshTrUI();
+}
+$('#btnSettings').onclick = () => { syncSettingsUI(); showSheet('setSheet'); };
+$$('#themeSeg button').forEach(b => b.onclick = () => { S.theme = b.dataset.v; saveS(); applyLook(); syncSettingsUI(); });
+$$('#spreadSeg button').forEach(b => b.onclick = () => { S.spread = b.dataset.v; saveS(); syncSettingsUI(); relayout(); });
+$('#fontSel').onchange = e => { S.font = e.target.value; saveS(); applyLook(); relayoutSoon(); };
+$('#lhRange').oninput = e => { S.lh = +e.target.value; saveS(); applyLook(); relayoutSoon(); };
+$('#sSm').onclick = () => changeSize(-1);
+$('#sBg').onclick = () => changeSize(1);
+$('#tintChk').onchange = e => { S.tint = e.target.checked; saveS(); applyLook(); };
+$('#autoChk').onchange = e => { S.autoAdd = e.target.checked; saveS(); };
+$('#numApply').onclick = () => {
+  const n = parseInt($('#numIn').value, 10);
+  if (isNaN(n)) { toast('Введіть число'); return; }
+  R.book.offset = R.p - n; R.book.useLabels = false; DB.put('books', R.book);
+  syncSettingsUI(); updateChrome(); toast(`Готово: ця сторінка тепер має номер ${n}`);
+};
+$('#lblChk').onchange = e => { R.book.useLabels = e.target.checked; DB.put('books', R.book); syncSettingsUI(); updateChrome(); };
+
+/* =====================================================================
+   Запуск
+   ===================================================================== */
+(async function init() {
+  applyLook();
+  buildLexicon();
+  if (!window.pdfjsLib) { document.body.innerHTML = '<p style="padding:24px">Не вдалося завантажити бібліотеку PDF.</p>'; return; }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
+  try { await DB.open(); } catch (e) { alert('Браузер не дозволяє зберігати дані.'); return; }
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(e => console.warn(e));
+  W = await DB.all('words');
+  renderLibrary();
+  refreshTrUI();
+})();
+</script>
+</body>
+</html>
