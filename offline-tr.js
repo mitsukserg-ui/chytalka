@@ -81,10 +81,15 @@ const OfflineTR = {
     return true;
   },
   async remove() { translator && translator.delete(); translator = null; await caches.delete(CACHE); manifest = null; },
-  async pair(from, to, text) {
+  async pair(from, to, text, html = false) {
     if (!translator) translator = new LatencyOptimisedTranslator({ downloadTimeout: 0, cacheSize: 200 }, new LocalBacking({ downloadTimeout: 0, cacheSize: 200 }));
-    const r = await translator.translate({ from, to, text, html: false });
+    const r = await translator.translate({ from, to, text, html });
     return r.target.text.trim();
+  },
+  /** Речення з позначеним словом (<b>…</b>): тег переноситься на переклад слова */
+  async translateHtml(html) {
+    const en = await this.pair('es', 'en', html, true);
+    return this.pair('en', 'uk', en, true);
   },
   /** Переклад з іспанської на українську. verb=true — словникова форма дієслова (інфінітив) */
   async translate(text, { verb = false } = {}) {

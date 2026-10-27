@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="uk">
 <head>
 <meta charset="utf-8">
@@ -122,6 +122,10 @@ body.locked #lockBtn{opacity:.75;color:var(--accent)}
 .pop-tr{font-size:18px;font-weight:600;margin-top:8px;color:var(--accent)}
 .pop-alts{font-size:13.5px;color:var(--muted);margin-top:4px}
 .pop-alts i{font-style:normal;color:var(--uiInk)}
+.pop-gen{font-size:13.5px;color:var(--muted);margin-top:3px}
+.pop-gen b{color:var(--uiInk);font-weight:600}
+.pop-sent{font:italic 14px/1.4 var(--rfont);color:var(--uiInk);margin-top:8px;padding-top:7px;border-top:1px solid rgba(128,128,128,.25)}
+.pop-sent u{text-decoration:none;color:var(--accent);font-style:normal;font-weight:600}
 .pop-act{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
 .pop-src{font-size:12px;color:var(--muted);margin-left:auto}
 .dots::after{content:'…';animation:blink 1s infinite}
@@ -242,7 +246,9 @@ body.locked #lockBtn{opacity:.75;color:var(--accent)}
   </div>
   <div class="pop-base" id="popBase"></div>
   <div class="pop-tr" id="popTr"></div>
+  <div class="pop-gen" id="popGen"></div>
   <div class="pop-alts" id="popAlts"></div>
+  <div class="pop-sent" id="popSent" hidden></div>
   <div class="pop-act">
     <button class="btn sm" id="popSave"></button>
     <span class="pop-src" id="popSrc"></span>
@@ -1275,7 +1281,7 @@ function analyze(full, start, end) {
   }
   let surface = full.slice(T[A].a, T[B].b).replace(/[\s­​]+/g, ' ').trim();
   if (/^\p{Lu}\p{Ll}*(\s|$)/u.test(surface)) surface = surface[0].toLowerCase() + surface.slice(1);
-  return { surface, kind, baseForm: base, isVerb };
+  return { surface, kind, baseForm: base, isVerb, a: T[A].a, b: T[B].b };
 }
 function getContext(range) {
   const node = range.startContainer, el = node.nodeType === 1 ? node : node.parentElement;
@@ -1294,6 +1300,20 @@ function sentenceAt(full, pos) {
   let b = pos; while (b < full.length && !/[.!?…]/.test(full[b])) b++;
   while (b < full.length && /[.!?…»"”]/.test(full[b])) b++;
   return full.slice(a, b).replace(/[\s​]+/g, ' ').trim().slice(0, 500);
+}
+// Речення, у якому позначено виділене слово (a..b) — для перекладу в контексті
+function markedSentence(full, a, b) {
+  let s = a; while (s > 0 && !/[.!?…]/.test(full[s - 1])) s--;
+  let e = b; while (e < full.length && !/[.!?…]/.test(full[e])) e++;
+  while (e < full.length && /[.!?…»"”]/.test(full[e])) e++;
+  // задовге речення — обрізаємо навколо слова по словах
+  if (a - s > 260) { s = a - 260; while (s < a && !/\s/.test(full[s])) s++; }
+  if (e - b > 260) { e = b + 260; while (e > b && !/\s/.test(full[e])) e--; }
+  const cl = t => t.replace(/[\s­​]+/g, ' ');
+  const pre = cl(full.slice(s, a)).replace(/^\s+/, ''), word = cl(full.slice(a, b)), post = cl(full.slice(b, e)).replace(/\s+$/, '');
+  const plain = pre + word + post;
+  const [L, R] = [['«', '»'], ['[', ']'], ['{', '}']].find(([l, r]) => !plain.includes(l) && !plain.includes(r)) || ['«', '»'];
+  return { plain, pre, word, post, L, R, atStart: !/\p{L}/u.test(pre), marked: pre + L + word + R + post };
 }
 
 /* =====================================================================
@@ -1320,19 +1340,55 @@ async function googleTr(q) {
   const lemma = (j.dict || []).map(d => d.base_form).find(Boolean) || null;
   return { main, alts, lemma };
 }
-async function translateUnit(an) {
+// Переклад речення з позначеним словом: out — переклад із маркерами L…R навколо слова
+function splitMarked(out, sc) {
+  const { L, R } = sc, i = out.indexOf(L), j = i < 0 ? -1 : out.indexOf(R, i + L.length);
+  const tidy = t => t.split(L).join('').split(R).join('').replace(/\s+([,.;:!?»])/g, '$1').replace(/\s{2,}/g, ' ');
+  if (j < 0) return { word: '', sent: tidy(out).trim(), sentHtml: esc(tidy(out).trim()) };
+  let word = out.slice(i + L.length, j).replace(/^[\s,.;:!?"«»]+|[\s,.;:!?"«»]+$/g, '');
+  if (word && sc.atStart && /^\p{Lu}\p{Ll}/u.test(word)) word = word[0].toLowerCase() + word.slice(1);
+  const a = tidy(out.slice(0, i)), b = tidy(out.slice(i + L.length, j)), c = tidy(out.slice(j + R.length));
+  return { word, sent: (a + b + c).trim(), sentHtml: (esc(a) + '<u>' + esc(b) + '</u>' + esc(c)).trim() };
+}
+async function googleCtx(sc) {
+  const j = await fetchJSON('https://translate.googleapis.com/translate_a/single?client=gtx&sl=es&tl=uk&hl=uk&dt=t&dj=1&q=' + encodeURIComponent(sc.marked));
+  const out = (j.sentences || []).map(s => s.trans || '').join('').trim();
+  if (!out) throw new Error('empty');
+  return out;
+}
+async function offlineCtx(sc) {
+  const html = esc(sc.pre) + '<b>' + esc(sc.word) + '</b>' + esc(sc.post);
+  const r = await window.OfflineTR.translateHtml(html);
+  const dec = t => { const d = document.createElement('textarea'); d.innerHTML = t; return d.value; };
+  return dec(r.replace(/<b[^>]*>/i, sc.L).replace(/<\/b>/i, sc.R).replace(/<[^>]+>/g, ''));
+}
+/* Переклад: слово в контексті речення (головний) + словниковий переклад окремо */
+async function translateUnit(an, sc) {
   const q = an.baseForm || an.surface, key = q.toLowerCase();
-  if (an.baseForm && window.CONN_UK && window.CONN_UK[an.baseForm]) return { main: window.CONN_UK[an.baseForm], alts: [], src: 'built' };
-  const c = await DB.get('tcache', key).catch(() => null);
-  if (c) return { ...c, src: c.src || 'saved' };
-  if (navigator.onLine !== false) {
-    try { const r = await googleTr(q); r.src = 'online'; DB.put('tcache', r, key).catch(() => {}); return r; } catch (e) {}
+  const online = navigator.onLine !== false;
+  const useCtx = sc && (sc.pre + sc.post).replace(/[^\p{L}]/gu, '').length >= 3;
+  const built = an.baseForm && window.CONN_UK && window.CONN_UK[an.baseForm];
+  let gen = built ? { main: built, alts: [], src: 'built' } : await DB.get('tcache', key).catch(() => null);
+  let cx = useCtx ? await DB.get('tcache', 'ctx:' + sc.marked).catch(() => null) : null;
+  let src = cx ? 'saved' : null;
+  if (online && (!gen || (useCtx && !cx))) {
+    await Promise.all([
+      gen ? null : googleTr(q).then(r => { r.src = 'online'; gen = r; DB.put('tcache', r, key).catch(() => {}); }).catch(() => {}),
+      !useCtx || cx ? null : googleCtx(sc).then(out => { cx = { out }; src = 'online'; DB.put('tcache', cx, 'ctx:' + sc.marked).catch(() => {}); }).catch(() => {}),
+    ]);
   }
-  if (await trReady()) {
-    const r = await window.OfflineTR.translate(q, { verb: an.kind === 'conn' && an.isVerb });
-    return { main: r.text, alts: [], lemma: null, src: 'offline' };
+  if ((!gen || (useCtx && !cx)) && await trReady()) {
+    if (useCtx && !cx) try { cx = { out: await offlineCtx(sc) }; src = 'offline'; } catch (e) { console.warn(e); }
+    if (!gen) try { const r = await window.OfflineTR.translate(q, { verb: an.kind === 'conn' && an.isVerb }); gen = { main: r.text, alts: [], lemma: null, src: 'offline' }; } catch (e) { console.warn(e); }
   }
-  throw new Error(navigator.onLine === false ? 'nooffline' : 'fail');
+  if (!gen && !cx) throw new Error(online ? 'fail' : 'nooffline');
+  const s = cx ? splitMarked(cx.out, sc) : null;
+  const main = (s && s.word) || (gen && gen.main) || s.sent;
+  return {
+    main, gen: gen && gen.main && gen.main.toLowerCase() !== main.toLowerCase() ? gen.main : '',
+    alts: (gen && gen.alts) || [], lemma: gen && gen.lemma, sent: s && s.sent, sentHtml: s && s.sentHtml,
+    src: src || (gen && gen.src) || 'saved',
+  };
 }
 function speak(text) {
   try {
@@ -1400,21 +1456,22 @@ async function handleSelection(range, txt) {
   const an = analyze(ctx.full, ctx.start, ctx.end) || { surface: txt.replace(/^[^\p{L}\d]+|[^\p{L}\d]+$/gu, ''), baseForm: null, kind: 'multi' };
   POP.an = an; POP.tr = null; POP.wordId = null; POP.rect = range.getBoundingClientRect();
   POP.sentence = sentenceAt(ctx.full, ctx.start);
+  const sc = an.a != null ? markedSentence(ctx.full, an.a, an.b) : null;
   $('#popWord').textContent = an.surface;
   let baseHtml = '';
   if (an.kind === 'conn') baseHtml = `${an.baseForm !== an.surface ? `→ <b>${esc(an.baseForm)}</b>` : ''}<span class="tag">з конектором</span>`;
   else if (an.kind === 'phrase') baseHtml = `${an.baseForm !== an.surface ? `→ <b>${esc(an.baseForm)}</b>` : ''}<span class="tag">сталий вираз</span>`;
   $('#popBase').innerHTML = baseHtml;
   $('#popTr').innerHTML = '<span class="dots">Перекладаю</span>';
-  $('#popAlts').innerHTML = ''; $('#popSrc').textContent = '';
+  $('#popAlts').innerHTML = ''; $('#popSrc').textContent = ''; $('#popGen').innerHTML = ''; $('#popSent').hidden = true;
   $('#popSave').hidden = true;
   $('#pop').hidden = false; placePop();
   const existing = findWord(an);
   let tr;
-  if (existing) tr = { main: existing.uk, alts: [], lemma: existing.lemma, src: 'saved' };
-  else {
-    try { tr = await translateUnit(an); } catch (e) {
-      if (id !== POP.id) return;
+  try { tr = await translateUnit(an, sc); } catch (e) {
+    if (id !== POP.id) return;
+    if (existing) tr = { main: existing.uk, alts: [], lemma: existing.lemma, src: 'saved' };
+    else {
       $('#popTr').textContent = e.message === 'nooffline'
         ? 'Немає Інтернету, а офлайн-перекладач ще не завантажено (Aa → Офлайн-перекладач).'
         : 'Не вдалося перекласти. Спробуйте ще раз.';
@@ -1424,6 +1481,8 @@ async function handleSelection(range, txt) {
   if (id !== POP.id) return;
   POP.tr = tr;
   $('#popTr').textContent = tr.main;
+  $('#popGen').innerHTML = tr.gen ? `словникове значення: <b>${esc(tr.gen)}</b>` : '';
+  if (tr.sentHtml && tr.sent && tr.sent.toLowerCase() !== tr.main.toLowerCase()) { $('#popSent').innerHTML = tr.sentHtml; $('#popSent').hidden = false; }
   $('#popSrc').textContent = SRC_LABEL[tr.src] || '';
   if (an.kind === 'word' && tr.lemma && tr.lemma.toLowerCase() !== an.surface.toLowerCase())
     $('#popBase').innerHTML = `початкова форма: <b>${esc(tr.lemma)}</b>`;
@@ -1468,11 +1527,11 @@ const wordKey = w => (w.base || w.es || '').toLowerCase().trim();
 function findWord(an) { const k = (an.baseForm || an.surface).toLowerCase().trim(); return W.find(w => wordKey(w) === k); }
 async function addWord(an, tr) {
   const ex = findWord(an); if (ex) return ex.id;
-  const alts = (tr.alts || []).slice(0, 3).map(d => `${d.pos ? d.pos + ': ' : ''}${d.terms.join(', ')}`).join('; ');
+  const alts = [tr.gen, ...(tr.alts || []).slice(0, 3).map(d => `${d.pos ? d.pos + ': ' : ''}${d.terms.join(', ')}`)].filter(Boolean).join('; ');
   const entry = {
     es: an.surface, base: an.baseForm || null, lemma: tr.lemma || null, kind: an.kind, uk: tr.main, alts,
     bookId: R.book && R.book.id, bookTitle: R.book && R.book.title, page: R.book ? labelOf(R.book, R.p) : '', pdfPage: R.p,
-    ctx: POP.sentence, ts: Date.now(),
+    ctx: POP.sentence, ctxUk: tr.sent || '', ts: Date.now(),
   };
   const id = await DB.put('words', entry); entry.id = id; W.push(entry); markDirty();
   return id;
@@ -1520,8 +1579,8 @@ $('#dictBody').addEventListener('focusout', async e => {
 $('#dictBody').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('.uk')) { e.preventDefault(); e.target.blur(); } });
 $('#dictExport').onclick = async () => {
   const list = dictList();
-  const rows = [['№', 'Іспанською', 'Початкова форма', 'Українською', 'Варіанти', 'Книжка', 'Сторінка', 'Речення'],
-    ...list.map((w, i) => [i + 1, w.es, w.base || w.lemma || '', w.uk, w.alts || '', w.bookTitle || '', w.page || '', w.ctx || ''])];
+  const rows = [['№', 'Іспанською', 'Початкова форма', 'Українською', 'Варіанти', 'Книжка', 'Сторінка', 'Речення', 'Переклад речення'],
+    ...list.map((w, i) => [i + 1, w.es, w.base || w.lemma || '', w.uk, w.alts || '', w.bookTitle || '', w.page || '', w.ctx || '', w.ctxUk || ''])];
   const csv = '﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n');
   await shareFile(new File([csv], 'slovnyk.csv', { type: 'text/csv' }));
 };
@@ -1693,7 +1752,7 @@ function syncSettingsUI() {
   if (R.book) { $('#numIn').value = labelOf(R.book, R.p); $('#lblWrap').hidden = !R.book.labels; $('#lblChk').checked = !!R.book.useLabels; }
   refreshTrUI();
 }
-const APP_V = 6;
+const APP_V = 7;
 $('#btnSettings').onclick = () => {
   syncSettingsUI();
   // версія і короткі технічні дані (щоб можна було надіслати знімок екрана, якщо щось не так)
